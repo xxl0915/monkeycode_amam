@@ -1,0 +1,22 @@
+<template>
+  <svg :width="size" :height="size" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="ring" x1="10" y1="38" x2="38" y2="6" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#c2410c" /><stop offset=".5" stop-color="#f59e0b" /><stop offset="1" stop-color="#0891b2" />
+      </linearGradient>
+      <linearGradient id="a" x1="16" y1="10" x2="32" y2="38" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#fbbf24" /><stop offset="1" stop-color="#d97706" />
+      </linearGradient>
+    </defs>
+    <g transform="translate(24 24)">
+      <path d="M-13.2 13.1 A18.5 18.5 0 1 1 13.2 13.1" fill="none" stroke="#111827" stroke-opacity=".14" stroke-width="4.8" stroke-linecap="round" />
+      <path d="M-13.2 13.1 A18.5 18.5 0 1 1 13.2 13.1" fill="none" stroke="url(#ring)" stroke-width="3.6" stroke-linecap="round" />
+      <path d="M-8 8.8 L0 -9.3 L8 8.8 M-4.2 1.2 L4.2 1.2" fill="none" stroke="#111827" stroke-opacity=".14" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M-8 8.8 L0 -9.3 L8 8.8 M-4.2 1.2 L4.2 1.2" fill="none" stroke="url(#a)" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="12.9" cy="12.8" r="3" fill="#0891b2" />
+    </g>
+  </svg>
+</template>
+<script setup>
+defineProps({ size: { type: [Number, String], default: 30 } })
+</script>
