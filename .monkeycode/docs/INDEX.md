@@ -81,6 +81,9 @@ npm run server
 # 启动前端开发服务器（/api 已代理到本地 API）
 npm run dev
 
+# 运行测试
+npm test
+
 # 生产构建
 npm run build
 

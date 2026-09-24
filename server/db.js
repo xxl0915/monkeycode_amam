@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const dataDir = join(here, 'data')
-const dataFile = join(dataDir, 'db.json')
+const dataFile = process.env.AMAM_DB_FILE || join(here, 'data', 'db.json')
+const dataDir = dirname(dataFile)
 
 const empty = () => ({ users: {}, sessions: {}, jobs: {}, orders: [], ledger: [] })
 
@@ -26,8 +26,8 @@ export function save() {
   writeFileSync(dataFile, JSON.stringify(state, null, 2))
 }
 
-function ledgerTotal(userId) {
-  return state.ledger.filter((entry) => entry.userId === userId).reduce((sum, entry) => sum + entry.delta, 0)
+export function ledgerTotal(userId) {
+  return round(state.ledger.filter((entry) => entry.userId === userId).reduce((sum, entry) => sum + entry.delta, 0))
 }
 
 function reconcileLedger() {
@@ -56,16 +56,23 @@ export function addLedger(userId, delta, reason, jobId) {
   state.ledger.push({ id: newId('led'), userId, delta: round(delta), reason, jobId: jobId || null, createdAt: Date.now() })
 }
 
+function alreadyFinalized(jobId) {
+  if (!jobId) return false
+  return state.ledger.some((entry) => entry.jobId === jobId && (entry.reason === 'settle' || entry.reason === 'refund'))
+}
+
 export function freezeCredits(user, cost, jobId) {
   user.credits = round(user.credits - cost)
   addLedger(user.id, -cost, 'freeze', jobId)
 }
 
 export function settleCredits(user, cost, jobId) {
+  if (alreadyFinalized(jobId)) return
   addLedger(user.id, 0, 'settle', jobId)
 }
 
 export function refundCredits(user, cost, jobId) {
+  if (alreadyFinalized(jobId)) return
   user.credits = round(user.credits + cost)
   addLedger(user.id, cost, 'refund', jobId)
 }

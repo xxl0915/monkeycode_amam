@@ -69,6 +69,7 @@ npm run preview
 | 工具 | 命令 | 目的 |
 |------|------|------|
 | Vite Build | `npm run build` | 验证 SPA 可构建、无编译错误 |
+| Tests | `npm test` | 积分账本属性测试与任务生命周期接口测试 |
 | 手工/接口验证 | `curl` + `npm run server` | 验证 API 行为 |
 
 ### 提交前检查
@@ -190,4 +191,4 @@ npm run preview
 
 ### 测试
 
-当前未接入自动化测试框架。生成管线的测试类任务在规格中被标记为可选，验证以接口与页面手工验证为主。
+测试文件位于 `tests/generation-pipeline.test.js`，使用 Node 内置 `node:test`。运行 `npm test`。测试通过 `AMAM_DB_FILE` 隔离存储，不会改写运行时 `server/data/db.json`。

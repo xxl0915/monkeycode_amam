@@ -66,7 +66,7 @@ async function handle(req, res, url) {
 
 ### 测试
 
-当前无自动化测试，使用 `curl` 手工验证。
+使用 `npm test` 运行 `tests/generation-pipeline.test.js`。测试通过 `AMAM_DB_FILE` 隔离存储。
 
 ## 添加新文件
 
