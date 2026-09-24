@@ -3,6 +3,12 @@
 .gemini
 .opencode
 
+# Vendored infinite-canvas source (built assets live in public/ic)
+vendor/
+
+# Runtime data for the local API server
+server/data/
+
 # IDE and Editors
 **/.idea/
 **/.vscode/

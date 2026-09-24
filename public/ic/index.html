@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN" class="font-sans">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="一个无限画布创作工具" />
+        <link rel="icon" href="./logo.svg" />
+        <title>无限画布</title>
+        <script>
+            try {
+                var s = JSON.parse(localStorage.getItem("infinite-canvas:theme_store") || "{}");
+                var t = s.state && s.state.theme === "light" ? "light" : "dark";
+                document.documentElement.classList.toggle("dark", t === "dark");
+                document.documentElement.style.colorScheme = t;
+            } catch (e) {}
+        </script>
+      <script type="module" crossorigin src="/ic/assets/index-BN047WXc.js"></script>
+      <link rel="modulepreload" crossorigin href="/ic/assets/vendor-Bgwq8YAY.js">
+      <link rel="stylesheet" crossorigin href="/ic/assets/vendor-B1gQ8PKR.css">
+      <link rel="stylesheet" crossorigin href="/ic/assets/index-84BSy31v.css">
+    </head>
+    <body class="bg-background text-foreground antialiased">
+        <div id="root"></div>
+        <script src="./config.js"></script>
+        <style>
+            #root:empty { min-height: 100dvh; display: grid; place-items: center; background: #0c0a09; color: #a8a29e; font: 14px/1.4 system-ui, sans-serif; }
+            #root:empty:after { content: "加载画布…"; }
+        </style>
+    </body>
+</html>
