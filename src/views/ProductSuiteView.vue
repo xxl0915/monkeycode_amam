@@ -326,7 +326,7 @@
             <small>{{ canGenerate ? 'AI 生成 · 4 积分' : generateHint }}</small>
           </div>
           <button type="button" class="primary-btn" :disabled="!canGenerate || busy" @click="generate">
-            {{ busy ? '生成中…' : `开始生成 ${totalCount} 张 4 积分` }}
+            {{ busy ? '生成中…' : uploading ? '上传中…' : `开始生成 ${totalCount} 张 4 积分` }}
           </button>
         </div>
       </div>
@@ -420,6 +420,7 @@ import { computed, reactive, ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { onlineModels } from '../data/catalogs'
+import { persistAsset } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const maxImages = 5
@@ -554,11 +555,13 @@ const currentPlatforms = computed(() => platforms[form.market_mode] || platforms
 const currentLanguages = computed(() => languages[form.market_mode] || languages.china)
 const marketLabel = computed(() => (form.market_mode === 'china' ? '中国' : '跨境'))
 const totalCount = computed(() => slotKeys.reduce((n, k) => n + Math.max(0, Math.min(4, Number(form[k]) || 0)), 0))
-const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !busy.value && !analyzing.value)
+const uploading = computed(() => images.value.some((img) => img.uploading))
+const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !busy.value && !analyzing.value && !uploading.value)
 const generateHint = computed(() => {
   if (!mainImage.value) return '请先上传商品主图'
   if (!form.product_info.trim()) return '请填写商品卖点与要求'
   if (totalCount.value <= 0) return '请至少选择 1 个输出版位'
+  if (uploading.value) return '图片上传中'
   return '补充参数后即可生成'
 })
 
@@ -566,23 +569,60 @@ function pickFiles(role) {
   pickRole.value = role
   fileInput.value?.click()
 }
-function onFiles(e) {
+async function persistPendingImages() {
+  for (const img of images.value) {
+    if (img.url || !img.file) continue
+    img.uploading = true
+    img.error = ''
+    try {
+      const asset = await persistAsset(img.file, img.role || 'product')
+      img.url = asset.url
+      img.assetId = asset.assetId
+      img.preview = asset.url
+      img.file = null
+    } catch (e) {
+      img.error = e?.message || '上传失败'
+      throw e
+    } finally {
+      img.uploading = false
+    }
+  }
+}
+
+async function onFiles(e) {
   const files = [...(e.target.files || [])].slice(0, maxImages - images.value.length)
   files.forEach((file) => {
     images.value.push({
       id: `${Date.now()}-${file.name}-${Math.random().toString(16).slice(2)}`,
       name: file.name,
       preview: URL.createObjectURL(file),
-      role: 'product'
+      role: 'product',
+      file,
+      url: '',
+      uploading: false,
+      error: ''
     })
   })
   if (form.main_image_index < 0 && images.value.length) form.main_image_index = 0
   if (pickRole.value === 'main' && images.value.length) form.main_image_index = images.value.length - files.length
   e.target.value = ''
+  if (store.user) {
+    try {
+      await persistPendingImages()
+    } catch (e) {
+      notice.value = e?.message || '上传失败'
+    }
+  }
 }
 function useSample(sample) {
   if (images.value.length >= maxImages) return
-  images.value.push({ id: `sample-${sample[0]}-${Date.now()}`, name: sample[1], preview: sample[2], role: 'product' })
+  images.value.push({
+    id: `sample-${sample[0]}-${Date.now()}`,
+    name: sample[1],
+    preview: sample[2],
+    url: sample[2],
+    role: 'product'
+  })
   if (form.main_image_index < 0) form.main_image_index = 0
 }
 function removeImage(index) {
@@ -643,10 +683,12 @@ async function generate() {
   busy.value = true
   notice.value = ''
   try {
+    await persistPendingImages()
     const refs = images.value.map((img, index) => ({
-      role: 'product',
+      role: img.role || 'product',
       name: img.name,
-      url: img.preview,
+      url: img.url || img.preview,
+      assetId: img.assetId,
       main: index === mainImageIndex.value
     }))
     const job = await createJob({

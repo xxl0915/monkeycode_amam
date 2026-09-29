@@ -19,11 +19,12 @@
 
 | 状态码 | 场景 | 响应示例 |
 |--------|------|----------|
-| `400` | 参数缺失或场景无效 | `{ "error": "missing_scene" }` / `{ "error": "invalid_scene" }` / `{ "error": "请输入账号和不少于 4 位的密码" }` |
+| `400` | 参数缺失、场景无效、素材无效 | `{ "error": "missing_scene" }` / `{ "error": "invalid_scene" }` / `{ "error": "invalid_ref" }` / `{ "error": "missing_file" }` / `{ "error": "invalid_mime" }` |
 | `401` | 未携带或无效令牌 | `{ "error": "unauthorized" }` |
 | `402` | 积分不足 | `{ "error": "insufficient_credits" }` |
 | `404` | 未知路径或资源不存在 | `{ "error": "not_found" }` |
 | `409` | 注册时账号已存在 | `{ "error": "该账号已注册，请直接登录" }` |
+| `413` | 单张图片超过 6 MiB | `{ "error": "file_too_large" }` |
 | `500` | 服务端异常 | `{ "error": "internal_error", "message": "..." }` |
 
 ### 端点列表
@@ -36,7 +37,9 @@
 | `POST` | `/api/v1/auth/logout` | 否 | 注销当前令牌 |
 | `GET` | `/api/v1/me` | 是 | 获取当前用户 |
 | `POST` | `/api/v1/orders` | 是 | 充值并返回最新用户 |
-| `POST` | `/api/v1/assets` | 是 | 登记参考素材元信息 |
+| `POST` | `/api/v1/assets` | 是 | 上传参考素材并落盘 |
+| `GET` | `/api/v1/assets` | 是 | 列出当前用户资产 |
+| `GET` | `/api/v1/assets/:id/file` | 否 | 读取资产图片字节 |
 | `GET` | `/api/v1/scenes` | 否 | 返回全部场景契约 |
 | `GET` | `/api/v1/models` | 否 | 返回可用模型列表 |
 | `POST` | `/api/v1/jobs` | 是 | 创建生成任务并冻结积分 |
@@ -114,16 +117,33 @@
 请求：
 
 ```json
-{ "name": "product.png", "role": "product", "url": "blob:..." }
+{ "name": "product.png", "role": "product", "mime": "image/png", "data": "<base64 or data URL>" }
 ```
+
+- 需 Bearer 令牌；无令牌：`401 unauthorized`
+- `data` 缺失或无法解码：`400 missing_file`
+- `mime` 不属于 `image/png`、`image/jpeg`、`image/webp`、`image/gif`：`400 invalid_mime`
+- 解码后超过 6 MiB：`413 file_too_large`
+- `role` 缺省为 `product`
+- 成功后字节写入 `files/{assetId}.{ext}`，元数据写入 `db.json` 的 `assets`
 
 响应 `200`：
 
 ```json
-{ "assetId": "ast_xxxxxxxxxxxxxxxxxx", "name": "product.png", "role": "product", "url": "blob:..." }
+{ "assetId": "ast_xxxxxxxxxxxxxxxxxx", "name": "product.png", "role": "product", "url": "/api/v1/assets/ast_xxxxxxxxxxxxxxxxxx/file" }
 ```
 
-说明：素材元信息仅登记返回，不落盘；`role` 缺省为 `product`。
+### GET /api/v1/assets
+
+需 Bearer。返回当前用户资产，按 `createdAt` 倒序：
+
+```json
+{ "assets": [ { "id": "ast_...", "name": "product.png", "role": "product", "url": "/api/v1/assets/ast_.../file", "createdAt": 0 } ] }
+```
+
+### GET /api/v1/assets/:id/file
+
+不要求 Authorization。返回原始图片字节与对应 `Content-Type`。记录或文件不存在时 `404 not_found`。
 
 ### GET /api/v1/scenes
 
@@ -154,12 +174,13 @@
   "scene": "商品主图",
   "model": "seedream-4.0",
   "params": { "outputCount": 2, "ratio": "3:4" },
-  "refs": [ { "role": "product", "name": "a.png", "url": "blob:..." } ]
+      "refs": [ { "role": "product", "name": "a.png", "url": "/api/v1/assets/ast_.../file" } ]
 }
 ```
 
 - `scene` 为空：`400 missing_scene`
 - `scene` 不在已知场景集合内：`400 invalid_scene`（匹配 `slug` 或 `title`，集合为 `sceneSchemas.json` 与 `catalogs.js` 的并集）
+- `refs[].url` 须为调用者本人的 `/api/v1/assets/:id/file`，或以 `/product-scenes/`、`/business/` 开头的静态路径；`blob:`、`data:` 或外链：`400 invalid_ref`
 - 积分小于单次消耗（`COST_PER_JOB = 4`）：`402 insufficient_credits`
 - 成功：`201`，任务初始状态 `queued`，并调用 `freezeCredits` 冻结积分
 
@@ -196,14 +217,17 @@
 ### `src/api/client.js`
 
 ```js
-import { api, ApiError, getToken, setToken } from './api/client'
+import { api, ApiError, getToken, setToken, persistAsset, isPersistedRefUrl } from './api/client'
 
 api.login(account, password)       // POST /auth/login
 api.register(account, password, invite) // POST /auth/register
 api.logout()                       // POST /auth/logout
 api.me()                           // GET /me
 api.recharge(credits, price)       // POST /orders
-api.registerAsset(asset)           // POST /assets
+api.registerAsset(asset)           // POST /assets（JSON + base64）
+api.listAssets()                   // GET /assets
+persistAsset(file, role)           // FileReader → POST /assets
+isPersistedRefUrl(url)             // /api/v1/assets/ | /product-scenes/ | /business/
 api.createJob(payload)             // POST /jobs
 api.listJobs()                     // GET /jobs
 api.getJob(id)                     // GET /jobs/:id

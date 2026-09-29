@@ -29,10 +29,10 @@
           参考图
           <input type="file" accept="image/*" multiple @change="onFiles" />
           <div class="thumbs">
-            <img v-for="(f, i) in refs" :key="i" :src="f" alt="" />
+            <img v-for="(item, i) in refs" :key="i" :src="item.preview" alt="" />
           </div>
         </label>
-        <button class="gen" type="button" :disabled="busy" @click="generate">{{ busy ? '生成中…' : '开始生成 · 4 积分' }}</button>
+        <button class="gen" type="button" :disabled="busy || uploading" @click="generate">{{ busy ? '生成中…' : uploading ? '上传中…' : '开始生成 · 4 积分' }}</button>
         <p v-if="error" class="err">{{ error }}</p>
       </aside>
       <section>
@@ -65,6 +65,7 @@ import { useRoute } from 'vue-router'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { productScenes, modelScenes, videoGroups, graphicGroups, podScenes, deriveScenes, marketingScenes, toolGroups, onlineModels } from '../data/catalogs'
+import { persistAsset } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({ kind: String, scene: String })
@@ -93,8 +94,45 @@ const busy = ref(false)
 const error = ref('')
 const results = ref([])
 
-function onFiles(e) {
-  refs.value = [...e.target.files].slice(0, 4).map((f) => URL.createObjectURL(f))
+const uploading = computed(() => refs.value.some((item) => item.uploading))
+
+async function persistPending() {
+  for (const item of refs.value) {
+    if (item.url || !item.file) continue
+    item.uploading = true
+    item.error = ''
+    try {
+      const asset = await persistAsset(item.file, 'reference')
+      item.url = asset.url
+      item.assetId = asset.assetId
+      item.preview = asset.url
+      item.file = null
+    } catch (e) {
+      item.error = e?.message || '上传失败'
+      throw e
+    } finally {
+      item.uploading = false
+    }
+  }
+}
+
+async function onFiles(e) {
+  refs.value = [...e.target.files].slice(0, 4).map((file) => ({
+    name: file.name,
+    file,
+    preview: URL.createObjectURL(file),
+    url: '',
+    uploading: false,
+    error: ''
+  }))
+  e.target.value = ''
+  if (store.user) {
+    try {
+      await persistPending()
+    } catch (e) {
+      error.value = e?.message || '上传失败'
+    }
+  }
 }
 async function generate() {
   if (!store.user) {
@@ -104,11 +142,12 @@ async function generate() {
   busy.value = true
   error.value = ''
   try {
+    await persistPending()
     const job = await createJob({
       scene: sceneMeta.value.title,
       model: model.value,
       params: { prompt: prompt.value, ratio: ratio.value, resolution: res.value, outputCount: 1 },
-      refs: refs.value.map((url, i) => ({ role: 'reference', name: `ref-${i + 1}`, url }))
+      refs: refs.value.map((item, i) => ({ role: 'reference', name: item.name || `ref-${i + 1}`, url: item.url, assetId: item.assetId }))
     })
     const finished = await pollJob(job.id)
     if (finished.status !== 'succeeded') throw new Error(finished.error || '生成失败，请稍后重试')

@@ -122,7 +122,7 @@
               <span>{{ canGenerate ? 'AI 生成 · 4 积分' : generateHint }}</span>
             </div>
             <button type="button" class="primary-btn" :disabled="!canGenerate" @click="generate">
-              {{ busy ? '生成中…' : `开始生成 ${outputCount} 张 4 积分` }}
+              {{ busy ? '生成中…' : uploading ? '上传中…' : `开始生成 ${outputCount} 张 4 积分` }}
             </button>
           </div>
           <p v-if="notice" class="scene-feedback">{{ notice }}</p>
@@ -183,6 +183,7 @@ import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import sceneSchemas from '../data/sceneSchemas.json'
 import { onlineModels, plazaModels } from '../data/catalogs'
+import { persistAsset } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({
@@ -297,8 +298,13 @@ const caseExamples = computed(() => examplesFor(schema.value?.roles?.[0] || { ke
 
 const missingRole = computed(() => (schema.value?.roles || []).find((role) => (uploads[role.key] || []).length < (role.min || 0)))
 const outputCount = computed(() => Math.max(1, Number(form.count) || 1))
-const canGenerate = computed(() => !!schema.value && !missingRole.value && !busy.value)
-const generateHint = computed(() => (missingRole.value ? `请先上传${missingRole.value.label}` : '补充参数后即可生成'))
+const uploading = computed(() => Object.values(uploads).some((list) => (list || []).some((item) => item.uploading)))
+const canGenerate = computed(() => !!schema.value && !missingRole.value && !busy.value && !uploading.value)
+const generateHint = computed(() => {
+  if (missingRole.value) return `请先上传${missingRole.value.label}`
+  if (uploading.value) return '图片上传中'
+  return '补充参数后即可生成'
+})
 
 function pick(role) {
   pickRole.value = role
@@ -312,17 +318,51 @@ function addItems(role, items) {
   uploads[role] = [...current, ...items.slice(0, Math.max(0, max - current.length))]
 }
 
-function onFiles(e) {
-  addItems(pickRole.value, [...(e.target.files || [])].map((file) => ({
+async function persistPendingUploads() {
+  for (const [role, list] of Object.entries(uploads)) {
+    for (const item of list || []) {
+      if (item.url || !item.file) continue
+      item.uploading = true
+      item.error = ''
+      try {
+        const asset = await persistAsset(item.file, role || 'product')
+        item.url = asset.url
+        item.assetId = asset.assetId
+        item.preview = asset.url
+        item.file = null
+      } catch (e) {
+        item.error = e?.message || '上传失败'
+        throw e
+      } finally {
+        item.uploading = false
+      }
+    }
+  }
+}
+
+async function onFiles(e) {
+  const role = pickRole.value
+  addItems(role, [...(e.target.files || [])].map((file) => ({
     id: `${Date.now()}-${file.name}`,
     name: file.name,
-    preview: URL.createObjectURL(file)
+    preview: URL.createObjectURL(file),
+    file,
+    url: '',
+    uploading: false,
+    error: ''
   })))
   e.target.value = ''
+  if (store.user) {
+    try {
+      await persistPendingUploads()
+    } catch (err) {
+      notice.value = err?.message || '上传失败'
+    }
+  }
 }
 
 function useExample(role, ex) {
-  addItems(role, [{ id: `${Date.now()}-${ex.name}`, name: ex.name, preview: ex.file }])
+  addItems(role, [{ id: `${Date.now()}-${ex.name}`, name: ex.name, preview: ex.file, url: ex.file }])
 }
 
 function removeImage(role, id) {
@@ -338,8 +378,9 @@ async function generate() {
   busy.value = true
   notice.value = ''
   try {
+    await persistPendingUploads()
     const refs = Object.entries(uploads).flatMap(([role, list]) =>
-      (list || []).map((item) => ({ role, name: item.name, url: item.preview }))
+      (list || []).map((item) => ({ role, name: item.name, url: item.url || item.preview, assetId: item.assetId }))
     )
     const modelId = models[0]?.id || ''
     const job = await createJob({

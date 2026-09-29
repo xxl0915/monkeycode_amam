@@ -22,11 +22,12 @@ amam 是一个 AI 视觉创作平台的前端应用（复刻 [aigc.easysu.cn](ht
 - Vite `^6.0.7` + `@vitejs/plugin-vue` `^5.2.1`
 
 **数据存储**
-- 本地 JSON 文件 `server/data/db.json`（users / sessions / jobs / orders / ledger）
+- 本地 JSON 文件 `server/data/db.json`（users / sessions / jobs / orders / ledger / assets）
+- 资产图片字节：`server/data/files/{assetId}.{ext}`
 - 浏览器 `localStorage`（仅保存会话令牌 `amam-token`）
 
 **基础设施**
-- Vite 开发服务器（端口 5173），`/api` 反向代理到本地 API（`http://127.0.0.1:8787`）
+- Vite 开发与 preview 服务器（端口 5173），`/api` 反向代理到本地 API（`http://127.0.0.1:8787`）
 - 自定义 Vite 中间件：`/ic/` 路由重写与 `/ic/assets/*.js|.css` 的 gzip 预压缩文件服务
 - `allowedHosts: ['.monkeycode-ai.online']` 以支持在线预览域名
 
@@ -47,7 +48,9 @@ workspace/
 │   ├── db.js                  # JSON 持久化与积分账本
 │   ├── worker.js              # 假 Worker 状态推进
 │   ├── catalog.js             # 场景契约、模型列表与样图池
-│   └── data/db.json           # 运行时数据（gitignore）
+│   └── data/
+│       ├── db.json            # 运行时数据（gitignore）
+│       └── files/             # 上传素材字节（gitignore）
 ├── src/
 │   ├── main.js                # 应用启动 + bootstrap
 │   ├── App.vue                # 仅含 RouterView
@@ -155,7 +158,7 @@ flowchart LR
     subgraph Server["Local API server/"]
         Routes["index.js routes"]
         Catalog["catalog.js"]
-        DB[("db.json")]
+        DB[("db.json + files/")]
         Worker["worker.js"]
     end
 

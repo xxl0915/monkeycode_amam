@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const dataFile = process.env.AMAM_DB_FILE || join(here, 'data', 'db.json')
 const dataDir = dirname(dataFile)
 
-const empty = () => ({ users: {}, sessions: {}, jobs: {}, orders: [], ledger: [] })
+const empty = () => ({ users: {}, sessions: {}, jobs: {}, orders: [], ledger: [], assets: {} })
 
 function load() {
   if (!existsSync(dataFile)) return empty()
@@ -80,6 +80,18 @@ export function refundCredits(user, cost, jobId) {
 export function creditUser(user, amount, reason) {
   user.credits = round(user.credits + amount)
   addLedger(user.id, amount, reason)
+}
+
+export function writeAssetFile(filename, bytes) {
+  const dir = join(dataDir, 'files')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, filename), bytes)
+}
+
+export function readAssetFile(filename) {
+  const full = join(dataDir, 'files', filename)
+  if (!existsSync(full)) return null
+  return readFileSync(full)
 }
 
 reconcileLedger()

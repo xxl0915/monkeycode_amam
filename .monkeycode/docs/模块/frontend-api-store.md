@@ -15,7 +15,7 @@ src/
 
 | 文件 | 目的 |
 |------|------|
-| `src/api/client.js` | `request()` 统一处理请求、Bearer 令牌、错误转换；导出 `api` 方法集合 |
+| `src/api/client.js` | `request()` 统一处理请求、Bearer 令牌、错误转换；导出 `api`、`persistAsset`、`isPersistedRefUrl` |
 | `src/store.js` | `store` 响应式单例；`bootstrap`、`login`、`register`、`logout`、`recharge`、`loadJobs`、`createJob`、`deleteJob`、`pollJob`、`formatCredits` |
 
 ## 依赖

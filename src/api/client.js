@@ -56,6 +56,42 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   return data
 }
 
+function readDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('读取图片失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+export function isPersistedRefUrl(url) {
+  const value = String(url || '')
+  return value.startsWith('/api/v1/assets/') || value.startsWith('/product-scenes/') || value.startsWith('/business/')
+}
+
+function mimeFromFile(file) {
+  if (file.type && /image\/(png|jpeg|webp|gif)/.test(file.type)) return file.type
+  const name = String(file.name || '').toLowerCase()
+  if (name.endsWith('.png')) return 'image/png'
+  if (name.endsWith('.webp')) return 'image/webp'
+  if (name.endsWith('.gif')) return 'image/gif'
+  return 'image/jpeg'
+}
+
+export async function persistAsset(file, role = 'product') {
+  const data = await readDataUrl(file)
+  return request('/assets', {
+    method: 'POST',
+    body: {
+      name: file.name || 'image',
+      role,
+      mime: mimeFromFile(file),
+      data
+    }
+  })
+}
+
 export const api = {
   login: (account, password) => request('/auth/login', { method: 'POST', body: { account, password }, auth: false }),
   register: (account, password, invite) => request('/auth/register', { method: 'POST', body: { account, password, invite }, auth: false }),
@@ -63,6 +99,8 @@ export const api = {
   me: () => request('/me'),
   recharge: (credits, price) => request('/orders', { method: 'POST', body: { credits, price } }),
   registerAsset: (asset) => request('/assets', { method: 'POST', body: asset }),
+  listAssets: () => request('/assets'),
+  persistAsset,
   createJob: (payload) => request('/jobs', { method: 'POST', body: payload }),
   listJobs: () => request('/jobs'),
   getJob: (id) => request(`/jobs/${id}`),

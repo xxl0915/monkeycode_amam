@@ -1,10 +1,18 @@
 import { createServer } from 'node:http'
 import { getScene, models, sceneSchemas } from './catalog.js'
-import { creditUser, freezeCredits, newId, save, state } from './db.js'
+import { creditUser, freezeCredits, newId, readAssetFile, save, state, writeAssetFile } from './db.js'
 import { startJob } from './worker.js'
 
 const PORT = Number(process.env.API_PORT || process.env.PORT || 8787)
 const COST_PER_JOB = 4
+const MAX_BODY_BYTES = 10_485_760
+const MAX_ASSET_BYTES = 6 * 1024 * 1024
+const ALLOWED_MIME = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+}
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload)
@@ -18,12 +26,22 @@ function sendJson(res, status, payload) {
   res.end(body)
 }
 
+function sendBytes(res, status, bytes, contentType) {
+  res.writeHead(status, {
+    'Content-Type': contentType,
+    'Content-Length': bytes.length,
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'private, max-age=31536000, immutable'
+  })
+  res.end(bytes)
+}
+
 function readBody(req) {
   return new Promise((resolve) => {
     let raw = ''
     req.on('data', (chunk) => {
       raw += chunk
-      if (raw.length > 8_000_000) req.destroy()
+      if (raw.length > MAX_BODY_BYTES) req.destroy()
     })
     req.on('end', () => {
       if (!raw) return resolve({})
@@ -54,6 +72,68 @@ function currentUser(req) {
   const session = state.sessions[header.slice(7)]
   if (!session) return null
   return state.users[session.userId] || null
+}
+
+function decodeImageData(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return null
+  const comma = text.indexOf(',')
+  const payload = text.startsWith('data:') && comma >= 0 ? text.slice(comma + 1) : text
+  try {
+    const bytes = Buffer.from(payload, 'base64')
+    return bytes.length ? bytes : null
+  } catch {
+    return null
+  }
+}
+
+function publicAsset(asset) {
+  return {
+    id: asset.id,
+    name: asset.name,
+    role: asset.role,
+    url: asset.url,
+    createdAt: asset.createdAt
+  }
+}
+
+function isStaticRef(url) {
+  return url.startsWith('/product-scenes/') || url.startsWith('/business/')
+}
+
+function assetIdFromUrl(url) {
+  const match = String(url || '').match(/^\/api\/v1\/assets\/([A-Za-z0-9_]+)\/file$/)
+  return match ? match[1] : ''
+}
+
+function normalizeRefs(user, refs) {
+  const list = []
+  for (const ref of refs) {
+    const url = String(ref?.url || '')
+    if (!url || url.startsWith('blob:') || url.startsWith('data:') || /^https?:/i.test(url)) {
+      return { error: 'invalid_ref' }
+    }
+    if (isStaticRef(url)) {
+      list.push({
+        role: String(ref.role || 'product'),
+        name: String(ref.name || ''),
+        url,
+        ...(ref.main ? { main: true } : {})
+      })
+      continue
+    }
+    const assetId = assetIdFromUrl(url) || String(ref.assetId || '')
+    const asset = assetId ? state.assets[assetId] : null
+    if (!asset || asset.userId !== user.id) return { error: 'invalid_ref' }
+    list.push({
+      role: String(ref.role || asset.role || 'product'),
+      name: String(ref.name || asset.name || ''),
+      url: asset.url,
+      assetId: asset.id,
+      ...(ref.main ? { main: true } : {})
+    })
+  }
+  return { refs: list }
 }
 
 function findOrCreateUser(account) {
@@ -137,8 +217,48 @@ async function handle(req, res, url) {
     const user = currentUser(req)
     if (!user) return sendJson(res, 401, { error: 'unauthorized' })
     const body = await readBody(req)
+    const bytes = decodeImageData(body.data)
+    if (!bytes) return sendJson(res, 400, { error: 'missing_file' })
+    const mime = String(body.mime || '').toLowerCase()
+    const ext = ALLOWED_MIME[mime]
+    if (!ext) return sendJson(res, 400, { error: 'invalid_mime' })
+    if (bytes.length > MAX_ASSET_BYTES) return sendJson(res, 413, { error: 'file_too_large' })
     const assetId = newId('ast')
-    return sendJson(res, 200, { assetId, name: body.name || '', role: body.role || 'product', url: body.url || '' })
+    const filename = `${assetId}.${ext}`
+    writeAssetFile(filename, bytes)
+    const asset = {
+      id: assetId,
+      userId: user.id,
+      name: String(body.name || filename),
+      role: String(body.role || 'product'),
+      mime,
+      size: bytes.length,
+      file: `files/${filename}`,
+      url: `/api/v1/assets/${assetId}/file`,
+      createdAt: Date.now()
+    }
+    state.assets[assetId] = asset
+    save()
+    return sendJson(res, 200, { assetId, name: asset.name, role: asset.role, url: asset.url })
+  }
+
+  if (path === '/api/v1/assets' && method === 'GET') {
+    const user = currentUser(req)
+    if (!user) return sendJson(res, 401, { error: 'unauthorized' })
+    const assets = Object.values(state.assets || {})
+      .filter((asset) => asset.userId === user.id)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(publicAsset)
+    return sendJson(res, 200, { assets })
+  }
+
+  const assetFileMatch = path.match(/^\/api\/v1\/assets\/([A-Za-z0-9_]+)\/file$/)
+  if (assetFileMatch && method === 'GET') {
+    const asset = (state.assets || {})[assetFileMatch[1]]
+    if (!asset) return sendJson(res, 404, { error: 'not_found' })
+    const bytes = readAssetFile(asset.file.replace(/^files\//, ''))
+    if (!bytes) return sendJson(res, 404, { error: 'not_found' })
+    return sendBytes(res, 200, bytes, asset.mime)
   }
 
   if (path === '/api/v1/scenes' && method === 'GET') {
@@ -157,13 +277,15 @@ async function handle(req, res, url) {
     if (!scene) return sendJson(res, 400, { error: 'missing_scene' })
     if (!getScene(scene)) return sendJson(res, 400, { error: 'invalid_scene' })
     if (user.credits < COST_PER_JOB) return sendJson(res, 402, { error: 'insufficient_credits' })
+    const normalized = normalizeRefs(user, Array.isArray(body.refs) ? body.refs : [])
+    if (normalized.error) return sendJson(res, 400, { error: normalized.error })
     const job = {
       id: newId('job'),
       userId: user.id,
       scene,
       model: String(body.model || ''),
       params: body.params || {},
-      refs: Array.isArray(body.refs) ? body.refs : [],
+      refs: normalized.refs,
       cost: COST_PER_JOB,
       status: 'queued',
       progress: 0,
