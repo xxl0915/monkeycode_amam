@@ -177,13 +177,13 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import sceneSchemas from '../data/sceneSchemas.json'
 import { onlineModels, plazaModels } from '../data/catalogs'
-import { persistAsset } from '../api/client'
+import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({
@@ -235,7 +235,10 @@ function resetForm(next) {
 }
 
 function resetUploads(next) {
-  Object.keys(uploads).forEach((key) => { delete uploads[key] })
+  Object.keys(uploads).forEach((key) => {
+    (uploads[key] || []).forEach((item) => revokePreview(item.preview))
+    delete uploads[key]
+  })
   ;(next?.roles || []).forEach((role) => { uploads[role.key] = [] })
 }
 
@@ -251,6 +254,10 @@ watch(schema, (next) => {
   results.value = []
   resultTab.value = 'result'
 }, { immediate: true })
+
+onUnmounted(() => {
+  Object.values(uploads).forEach((list) => (list || []).forEach((item) => revokePreview(item.preview)))
+})
 
 function visible(field) {
   if (!field.when) return true
@@ -319,37 +326,25 @@ function addItems(role, items) {
 }
 
 async function persistPendingUploads() {
+  const userId = store.user?.id
   for (const [role, list] of Object.entries(uploads)) {
-    for (const item of list || []) {
-      if (item.url || !item.file) continue
-      item.uploading = true
-      item.error = ''
-      try {
-        const asset = await persistAsset(item.file, role || 'product')
-        item.url = asset.url
-        item.assetId = asset.assetId
-        item.preview = asset.url
-        item.file = null
-      } catch (e) {
-        item.error = e?.message || '上传失败'
-        throw e
-      } finally {
-        item.uploading = false
-      }
-    }
+    for (const item of list || []) await persistLocalItem(item, role || 'product', userId)
   }
 }
 
+watch(() => store.user?.id, async (id) => {
+  if (!id) return
+  try {
+    await persistPendingUploads()
+  } catch (err) {
+    notice.value = err?.message || '上传失败'
+  }
+})
+
 async function onFiles(e) {
   const role = pickRole.value
-  addItems(role, [...(e.target.files || [])].map((file) => ({
-    id: `${Date.now()}-${file.name}`,
-    name: file.name,
-    preview: URL.createObjectURL(file),
-    file,
-    url: '',
-    uploading: false,
-    error: ''
+  addItems(role, [...(e.target.files || [])].map((file) => localImageItem(file, {
+    id: `${Date.now()}-${file.name}`
   })))
   e.target.value = ''
   if (store.user) {
@@ -366,7 +361,10 @@ function useExample(role, ex) {
 }
 
 function removeImage(role, id) {
-  uploads[role] = (uploads[role] || []).filter((item) => item.id !== id)
+  const current = uploads[role] || []
+  const target = current.find((item) => item.id === id)
+  revokePreview(target?.preview)
+  uploads[role] = current.filter((item) => item.id !== id)
 }
 
 async function generate() {
@@ -379,8 +377,10 @@ async function generate() {
   notice.value = ''
   try {
     await persistPendingUploads()
+    const failed = Object.values(uploads).flat().find((item) => item?.file && !item.url)
+    if (failed) throw new Error(failed.error || '图片上传失败')
     const refs = Object.entries(uploads).flatMap(([role, list]) =>
-      (list || []).map((item) => ({ role, name: item.name, url: item.url || item.preview, assetId: item.assetId }))
+      (list || []).filter((item) => item.url).map((item) => ({ role, name: item.name, url: item.url, assetId: item.assetId }))
     )
     const modelId = models[0]?.id || ''
     const job = await createJob({

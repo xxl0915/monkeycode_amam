@@ -9,6 +9,9 @@ vendor/
 # Runtime data for the local API server
 server/data/
 
+# Vite cache
+.vite/
+
 # IDE and Editors
 **/.idea/
 **/.vscode/

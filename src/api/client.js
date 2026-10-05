@@ -2,10 +2,11 @@ const BASE = '/api/v1'
 const TOKEN_KEY = 'amam-token'
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, code) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code || ''
   }
 }
 
@@ -51,7 +52,7 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   }
 
   if (!res.ok) {
-    throw new ApiError(data?.error || `请求失败（${res.status}）`, res.status)
+    throw new ApiError(friendlyError(data?.error, res.status), res.status, data?.error)
   }
   return data
 }
@@ -70,23 +71,47 @@ export function isPersistedRefUrl(url) {
   return value.startsWith('/api/v1/assets/') || value.startsWith('/product-scenes/') || value.startsWith('/business/')
 }
 
+const MAX_ASSET_BYTES = 6 * 1024 * 1024
+
+const ERROR_TEXT = {
+  missing_file: '请选择有效图片',
+  invalid_mime: '仅支持 PNG / JPEG / WebP / GIF',
+  file_too_large: '单张图片不能超过 6 MB',
+  invalid_ref: '参考图无效，请重新上传',
+  invalid_scene: '当前场景不可用',
+  missing_scene: '请选择生成场景',
+  insufficient_credits: '积分不足，请先充值',
+  unauthorized: '登录已失效，请重新登录',
+  not_found: '资源不存在'
+}
+
+function friendlyError(code, status) {
+  return ERROR_TEXT[code] || (status ? `请求失败（${status}）` : '请求失败')
+}
+
 function mimeFromFile(file) {
-  if (file.type && /image\/(png|jpeg|webp|gif)/.test(file.type)) return file.type
+  const declared = String(file.type || '').toLowerCase().split(';')[0].trim()
+  if (declared === 'image/jpg' || declared === 'image/pjpeg') return 'image/jpeg'
+  if (/^image\/(png|jpeg|webp|gif)$/.test(declared)) return declared
   const name = String(file.name || '').toLowerCase()
   if (name.endsWith('.png')) return 'image/png'
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg'
   if (name.endsWith('.webp')) return 'image/webp'
   if (name.endsWith('.gif')) return 'image/gif'
-  return 'image/jpeg'
+  return ''
 }
 
 export async function persistAsset(file, role = 'product') {
+  if (file.size > MAX_ASSET_BYTES) throw new ApiError(friendlyError('file_too_large', 413), 413, 'file_too_large')
+  const mime = mimeFromFile(file)
+  if (!mime) throw new ApiError(friendlyError('invalid_mime', 400), 400, 'invalid_mime')
   const data = await readDataUrl(file)
   return request('/assets', {
     method: 'POST',
     body: {
       name: file.name || 'image',
       role,
-      mime: mimeFromFile(file),
+      mime,
       data
     }
   })

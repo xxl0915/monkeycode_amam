@@ -60,12 +60,12 @@
   </component>
 </template>
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { productScenes, modelScenes, videoGroups, graphicGroups, podScenes, deriveScenes, marketingScenes, toolGroups, onlineModels } from '../data/catalogs'
-import { persistAsset } from '../api/client'
+import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({ kind: String, scene: String })
@@ -97,34 +97,26 @@ const results = ref([])
 const uploading = computed(() => refs.value.some((item) => item.uploading))
 
 async function persistPending() {
-  for (const item of refs.value) {
-    if (item.url || !item.file) continue
-    item.uploading = true
-    item.error = ''
-    try {
-      const asset = await persistAsset(item.file, 'reference')
-      item.url = asset.url
-      item.assetId = asset.assetId
-      item.preview = asset.url
-      item.file = null
-    } catch (e) {
-      item.error = e?.message || '上传失败'
-      throw e
-    } finally {
-      item.uploading = false
-    }
-  }
+  const userId = store.user?.id
+  for (const item of refs.value) await persistLocalItem(item, 'reference', userId)
 }
 
+watch(() => store.user?.id, async (id) => {
+  if (!id) return
+  try {
+    await persistPending()
+  } catch (e) {
+    error.value = e?.message || '上传失败'
+  }
+})
+
+onUnmounted(() => {
+  refs.value.forEach((item) => revokePreview(item.preview))
+})
+
 async function onFiles(e) {
-  refs.value = [...e.target.files].slice(0, 4).map((file) => ({
-    name: file.name,
-    file,
-    preview: URL.createObjectURL(file),
-    url: '',
-    uploading: false,
-    error: ''
-  }))
+  refs.value.forEach((item) => revokePreview(item.preview))
+  refs.value = [...e.target.files].slice(0, 4).map((file) => localImageItem(file))
   e.target.value = ''
   if (store.user) {
     try {
@@ -143,11 +135,13 @@ async function generate() {
   error.value = ''
   try {
     await persistPending()
+    const failed = refs.value.find((item) => item.file && !item.url)
+    if (failed) throw new Error(failed.error || '图片上传失败')
     const job = await createJob({
       scene: sceneMeta.value.title,
       model: model.value,
       params: { prompt: prompt.value, ratio: ratio.value, resolution: res.value, outputCount: 1 },
-      refs: refs.value.map((item, i) => ({ role: 'reference', name: item.name || `ref-${i + 1}`, url: item.url, assetId: item.assetId }))
+      refs: refs.value.filter((item) => item.url).map((item, i) => ({ role: 'reference', name: item.name || `ref-${i + 1}`, url: item.url, assetId: item.assetId }))
     })
     const finished = await pollJob(job.id)
     if (finished.status !== 'succeeded') throw new Error(finished.error || '生成失败，请稍后重试')

@@ -265,4 +265,60 @@ test('jobs reject blob refs and accept persisted or static urls', async (t) => {
   assert.equal(okJob.body.job.refs[0].assetId, created.body.assetId)
   assert.equal(okJob.body.job.refs[1].url, '/product-scenes/samples/suite.webp')
   assert.equal(okJob.body.job.refs[2].url, '/business/models/model-1.png')
+
+  const traversal = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      scene: 'suite',
+      refs: [{ role: 'product', name: 'x', url: '/product-scenes/../package.json' }]
+    })
+  })
+  assert.equal(traversal.status, 400)
+  assert.equal(traversal.body.error, 'invalid_ref')
+
+  const other = await loginAs(base, 'other@amam.ai')
+  const stolen = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${other.token}` },
+    body: JSON.stringify({
+      scene: 'suite',
+      refs: [{ role: 'product', name: 'dot.png', url: created.body.url }]
+    })
+  })
+  assert.equal(stolen.status, 400)
+  assert.equal(stolen.body.error, 'invalid_ref')
+
+  const mismatch = await json(`${base}/assets`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name: 'lie.jpg', role: 'product', mime: 'image/jpeg', data: PNG_1X1 })
+  })
+  assert.equal(mismatch.status, 400)
+  assert.equal(mismatch.body.error, 'invalid_mime')
+})
+
+test('deleting a queued job refunds frozen credits', async (t) => {
+  const { server, base } = await listen()
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const { token, user } = await loginAs(base, 'refund-delete@amam.ai')
+  const before = user.credits
+
+  const created = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ scene: 'suite', params: { outputCount: 1 } })
+  })
+  assert.equal(created.status, 201)
+  assert.equal(created.body.user.credits, before - 4)
+
+  const deleted = await json(`${base}/jobs/${created.body.job.id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  assert.equal(deleted.status, 200)
+  assert.equal(deleted.body.user.credits, before)
+
+  const me = await json(`${base}/me`, { headers: { Authorization: `Bearer ${token}` } })
+  assert.equal(me.body.user.credits, before)
 })

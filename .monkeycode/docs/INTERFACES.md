@@ -122,7 +122,7 @@
 
 - 需 Bearer 令牌；无令牌：`401 unauthorized`
 - `data` 缺失或无法解码：`400 missing_file`
-- `mime` 不属于 `image/png`、`image/jpeg`、`image/webp`、`image/gif`：`400 invalid_mime`
+- 文件魔数须为 PNG / JPEG / WebP / GIF；声明的 `mime` 若存在须与魔数一致，否则 `400 invalid_mime`
 - 解码后超过 6 MiB：`413 file_too_large`
 - `role` 缺省为 `product`
 - 成功后字节写入 `files/{assetId}.{ext}`，元数据写入 `db.json` 的 `assets`
@@ -210,7 +210,7 @@
 
 - 任务不存在或不属于当前用户：`404 not_found`（按令牌隔离）
 - `GET` 返回 `{ "job": { ... } }`
-- `DELETE` 成功返回 `{ "ok": true }`
+- `DELETE` 成功返回 `{ "ok": true, "user": { ... } }`；若任务仍在 `queued` / `running`，会退还已冻结积分
 
 ## 前端模块接口
 

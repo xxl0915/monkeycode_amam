@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 
@@ -82,14 +82,23 @@ export function creditUser(user, amount, reason) {
   addLedger(user.id, amount, reason)
 }
 
+function safeAssetName(filename) {
+  const name = basename(String(filename || ''))
+  return /^ast_[A-Za-z0-9]+\.(png|jpg|webp|gif)$/.test(name) ? name : ''
+}
+
 export function writeAssetFile(filename, bytes) {
+  const name = safeAssetName(filename)
+  if (!name) throw new Error('invalid_asset_name')
   const dir = join(dataDir, 'files')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, filename), bytes)
+  writeFileSync(join(dir, name), bytes)
 }
 
 export function readAssetFile(filename) {
-  const full = join(dataDir, 'files', filename)
+  const name = safeAssetName(filename)
+  if (!name) return null
+  const full = join(dataDir, 'files', name)
   if (!existsSync(full)) return null
   return readFileSync(full)
 }
