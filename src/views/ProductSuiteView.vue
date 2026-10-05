@@ -51,7 +51,7 @@
               </div>
               <div class="suite-tips">
                 <strong>Tips.</strong>
-                <span>{{ tipOpen ? '建议优先上传清晰主图，再补充侧面、细节和包装图；示例仅用于快速填充参考素材，生成前仍可删除或替换。' : '请上传同一款商品的不同角度/细节图，建议清晰展示商品全貌；支持 JPG / PNG / GIF / WebP，单张不超过 50MB。' }}</span>
+                <span>{{ tipOpen ? '建议优先上传清晰主图，再补充侧面、细节和包装图；示例仅用于快速填充参考素材，生成前仍可删除或替换。' : '请上传同一款商品的不同角度/细节图，建议清晰展示商品全貌；支持 JPG / PNG / GIF / WebP，单张不超过 6MB。' }}</span>
                 <button type="button" class="text-btn" @click="tipOpen = !tipOpen">{{ tipOpen ? '收起 ‹' : '更多 ›' }}</button>
               </div>
             </div>
@@ -326,7 +326,7 @@
             <small>{{ canGenerate ? 'AI 生成 · 4 积分' : generateHint }}</small>
           </div>
           <button type="button" class="primary-btn" :disabled="!canGenerate || busy" @click="generate">
-            {{ busy ? '生成中…' : `开始生成 ${totalCount} 张 4 积分` }}
+            {{ busy ? '生成中…' : uploading ? '上传中…' : `开始生成 ${totalCount} 张 4 积分` }}
           </button>
         </div>
       </div>
@@ -416,10 +416,11 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { onlineModels } from '../data/catalogs'
+import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
 import { store, createJob, pollJob } from '../store'
 
 const maxImages = 5
@@ -554,11 +555,13 @@ const currentPlatforms = computed(() => platforms[form.market_mode] || platforms
 const currentLanguages = computed(() => languages[form.market_mode] || languages.china)
 const marketLabel = computed(() => (form.market_mode === 'china' ? '中国' : '跨境'))
 const totalCount = computed(() => slotKeys.reduce((n, k) => n + Math.max(0, Math.min(4, Number(form[k]) || 0)), 0))
-const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !busy.value && !analyzing.value)
+const uploading = computed(() => images.value.some((img) => img.uploading))
+const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !busy.value && !analyzing.value && !uploading.value)
 const generateHint = computed(() => {
   if (!mainImage.value) return '请先上传商品主图'
   if (!form.product_info.trim()) return '请填写商品卖点与要求'
   if (totalCount.value <= 0) return '请至少选择 1 个输出版位'
+  if (uploading.value) return '图片上传中'
   return '补充参数后即可生成'
 })
 
@@ -566,26 +569,56 @@ function pickFiles(role) {
   pickRole.value = role
   fileInput.value?.click()
 }
-function onFiles(e) {
+async function persistPendingImages() {
+  const userId = store.user?.id
+  for (const img of images.value) await persistLocalItem(img, img.role || 'product', userId)
+}
+
+watch(() => store.user?.id, async (id) => {
+  if (!id) return
+  try {
+    await persistPendingImages()
+  } catch (e) {
+    notice.value = e?.message || '上传失败'
+  }
+})
+
+onUnmounted(() => {
+  images.value.forEach((img) => revokePreview(img.preview))
+})
+
+async function onFiles(e) {
   const files = [...(e.target.files || [])].slice(0, maxImages - images.value.length)
   files.forEach((file) => {
-    images.value.push({
+    images.value.push(localImageItem(file, {
       id: `${Date.now()}-${file.name}-${Math.random().toString(16).slice(2)}`,
-      name: file.name,
-      preview: URL.createObjectURL(file),
       role: 'product'
-    })
+    }))
   })
   if (form.main_image_index < 0 && images.value.length) form.main_image_index = 0
   if (pickRole.value === 'main' && images.value.length) form.main_image_index = images.value.length - files.length
   e.target.value = ''
+  if (store.user) {
+    try {
+      await persistPendingImages()
+    } catch (e) {
+      notice.value = e?.message || '上传失败'
+    }
+  }
 }
 function useSample(sample) {
   if (images.value.length >= maxImages) return
-  images.value.push({ id: `sample-${sample[0]}-${Date.now()}`, name: sample[1], preview: sample[2], role: 'product' })
+  images.value.push({
+    id: `sample-${sample[0]}-${Date.now()}`,
+    name: sample[1],
+    preview: sample[2],
+    url: sample[2],
+    role: 'product'
+  })
   if (form.main_image_index < 0) form.main_image_index = 0
 }
 function removeImage(index) {
+  revokePreview(images.value[index]?.preview)
   images.value.splice(index, 1)
   if (!images.value.length) form.main_image_index = -1
   else if (form.main_image_index >= images.value.length) form.main_image_index = 0
@@ -643,12 +676,19 @@ async function generate() {
   busy.value = true
   notice.value = ''
   try {
-    const refs = images.value.map((img, index) => ({
-      role: 'product',
-      name: img.name,
-      url: img.preview,
-      main: index === mainImageIndex.value
-    }))
+    await persistPendingImages()
+    const failed = images.value.find((img) => img.file && !img.url)
+    if (failed) throw new Error(failed.error || '图片上传失败')
+    const refs = images.value
+      .map((img, index) => ({ img, index }))
+      .filter(({ img }) => img.url)
+      .map(({ img, index }) => ({
+        role: img.role || 'product',
+        name: img.name,
+        url: img.url,
+        assetId: img.assetId,
+        main: index === mainImageIndex.value
+      }))
     const job = await createJob({
       scene: '商品套图',
       model: form.model_id,

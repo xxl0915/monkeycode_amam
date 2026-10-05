@@ -37,8 +37,9 @@ Entries discovered by the Agent during task execution should follow this format:
 - Category: Operations & Deployment
 - Instructions:
   - Local generation API lives in `server/` and runs with `npm run server` (Node built-in http, no deps), listening on `127.0.0.1:8787`.
-  - Vite dev/preview proxies `/api` to `http://127.0.0.1:8787`; generation features need both `npm run server` and `npm run dev` running.
-  - Runtime data is persisted to `server/data/db.json` (gitignored); deleting it resets users, credits and jobs.
+  - Vite `server` and `preview` both proxy `/api` to `http://127.0.0.1:8787`; generation and asset thumbnails need both `npm run server` and `npm run dev` (or `preview`).
+  - Runtime data is persisted to `server/data/db.json` (gitignored); deleting it resets users, credits, jobs and assets.
+  - Uploaded reference images live in `server/data/files/` next to `db.json`; `AMAM_DB_FILE` also relocates that files directory.
   - Upstream model vendors are not integrated; the fake worker produces sample images from `public/product-scenes/samples/`.
 
 [Project Knowledge Summary]

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 
@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const dataFile = process.env.AMAM_DB_FILE || join(here, 'data', 'db.json')
 const dataDir = dirname(dataFile)
 
-const empty = () => ({ users: {}, sessions: {}, jobs: {}, orders: [], ledger: [] })
+const empty = () => ({ users: {}, sessions: {}, jobs: {}, orders: [], ledger: [], assets: {} })
 
 function load() {
   if (!existsSync(dataFile)) return empty()
@@ -80,6 +80,27 @@ export function refundCredits(user, cost, jobId) {
 export function creditUser(user, amount, reason) {
   user.credits = round(user.credits + amount)
   addLedger(user.id, amount, reason)
+}
+
+function safeAssetName(filename) {
+  const name = basename(String(filename || ''))
+  return /^ast_[A-Za-z0-9]+\.(png|jpg|webp|gif)$/.test(name) ? name : ''
+}
+
+export function writeAssetFile(filename, bytes) {
+  const name = safeAssetName(filename)
+  if (!name) throw new Error('invalid_asset_name')
+  const dir = join(dataDir, 'files')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), bytes)
+}
+
+export function readAssetFile(filename) {
+  const name = safeAssetName(filename)
+  if (!name) return null
+  const full = join(dataDir, 'files', name)
+  if (!existsSync(full)) return null
+  return readFileSync(full)
 }
 
 reconcileLedger()

@@ -11,7 +11,8 @@ server/
 ├── worker.js    # 假 Worker 状态推进与结算/退款
 ├── catalog.js   # 场景契约、模型列表、样图池
 └── data/
-    └── db.json  # 运行时数据（gitignore）
+    ├── db.json  # 运行时数据（gitignore）
+    └── files/   # 上传素材字节（gitignore）
 ```
 
 ## 关键文件
@@ -19,7 +20,7 @@ server/
 | 文件 | 目的 |
 |------|------|
 | `index.js` | 路由分发：`/api/v1/*`，`sendJson`、`readBody`、`currentUser`、`issueToken` |
-| `db.js` | `state`、`save`、`newId`、`addLedger`、`creditUser`、`freezeCredits`、`settleCredits`、`refundCredits`、`reconcileLedger` |
+| `db.js` | `state`、`save`、`newId`、`addLedger`、`creditUser`、`freezeCredits`、`settleCredits`、`refundCredits`、`reconcileLedger`、`writeAssetFile`、`readAssetFile` |
 | `worker.js` | `startJob(jobId)`：`queued → running → succeeded/failed` |
 | `catalog.js` | `sceneSchemas`、`getScene`、`models`、`samplePool` |
 

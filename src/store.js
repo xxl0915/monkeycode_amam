@@ -86,8 +86,9 @@ export async function createJob(payload) {
 }
 
 export async function deleteJob(id) {
-  await api.deleteJob(id)
+  const data = await api.deleteJob(id)
   store.jobs = store.jobs.filter((job) => job.id !== id)
+  if (data?.user) store.user = data.user
 }
 
 function sleep(ms) {
@@ -98,11 +99,22 @@ export async function pollJob(id, { interval = 1000, timeout = 60000 } = {}) {
   const deadline = Date.now() + timeout
   let job = store.jobs.find((item) => item.id === id) || (await api.getJob(id)).job
   while (job.status === 'queued' || job.status === 'running') {
-    if (Date.now() > deadline) return job
+    if (Date.now() > deadline) {
+      job.error = job.error || '生成超时，请稍后重试'
+      return job
+    }
     await sleep(interval)
     job = (await api.getJob(id)).job
     const index = store.jobs.findIndex((item) => item.id === id)
     if (index >= 0) store.jobs[index] = job
+  }
+  if (job.status === 'failed' || job.status === 'succeeded') {
+    try {
+      const { user } = await api.me()
+      store.user = user
+    } catch {
+      /* keep frozen credits until next refresh */
+    }
   }
   return job
 }
