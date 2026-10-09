@@ -13,7 +13,7 @@ src/
 │   ├── ProductSceneView.vue      # 场景工作台；商品/模特/POD/衍生/工具/打印尺寸按 schema 动态渲染
 │   ├── WorkbenchView.vue         # 通用工作台（视频实体获客等未契约化入口）
 │   ├── BusinessCatalogView.vue   # 业务分类目录
-    │   ├── BusinessScenePlanView.vue # 业务场景方案页；营销、平面设计、电商素材入口若有 targetRoute 会先重定向
+    │   ├── BusinessScenePlanView.vue # 业务场景方案页；营销、平面、电商素材、工具箱外部映射、跨境套图入口若有 targetRoute 会先重定向
 │   ├── ModelPlazaView.vue        # 模特广场
 │   ├── ToolsView.vue             # 图片工具
 │   ├── PhotoEditView.vue         # 本地图片编辑
@@ -27,7 +27,7 @@ src/
     ├── PayModal.vue              # 充值
     ├── SearchModal.vue           # 站内搜索
     ├── HelpDrawer.vue            # 帮助抽屉
-    ├── SceneWorkbenchShell.vue   # 工作台外壳
+    ├── SceneWorkbenchShell.vue   # 工作台外壳；平面与工具箱侧栏按 catalogNavRoute 直达 targetRoute
     ├── Icon.vue                  # 图标
     └── LogoMark.vue              # 品牌 Logo
 ```

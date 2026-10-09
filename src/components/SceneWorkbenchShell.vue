@@ -4,7 +4,7 @@
       <RouterLink
         v-for="s in allScenes"
         :key="s.slug"
-        :to="`${base}/${s.slug}`"
+        :to="sceneTo(s)"
         :class="{ active: s.slug === scene }"
       >{{ s.title }}</RouterLink>
     </div>
@@ -15,7 +15,7 @@
           <RouterLink
             v-for="s in g.scenes"
             :key="s.slug"
-            :to="`${base}/${s.slug}`"
+            :to="sceneTo(s)"
             class="scene-nav-item"
             :class="{ active: s.slug === scene }"
           >
@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { catalogNavRoute } from '../data/business'
 import { deriveCatalog, graphicGroups, modelCatalog, podCatalog, productCatalog, toolGroups } from '../data/catalogs'
 
 const props = defineProps({
@@ -43,8 +44,8 @@ const catalogs = {
   model: { list: modelCatalog, base: '/model-images', label: '模特图功能导航' },
   pod: { list: podCatalog, base: '/pod-images', label: '图片POD功能导航' },
   derive: { list: deriveCatalog, base: '/derive-images', label: '爆款衍生功能导航' },
-  tool: { list: toolGroups, base: '/tools/ai', label: '图片工具功能导航' },
-  graphic: { list: graphicGroups, base: '/graphic-design', label: '平面设计功能导航' },
+  tool: { list: toolGroups, base: '/tools/ai', label: '图片工具功能导航', categoryKey: 'toolbox' },
+  graphic: { list: graphicGroups, base: '/graphic-design', label: '平面设计功能导航', categoryKey: 'graphic-design' },
   product: { list: productCatalog, base: '/product-images', label: '商品图功能导航' }
 }
 const current = computed(() => catalogs[props.kind] || catalogs.product)
@@ -52,6 +53,12 @@ const catalog = computed(() => current.value.list)
 const base = computed(() => current.value.base)
 const navLabel = computed(() => current.value.label)
 const allScenes = computed(() => catalog.value.flatMap((g) => g.scenes || []))
+
+function sceneTo(s) {
+  const item = current.value
+  if (item.categoryKey) return catalogNavRoute(item.categoryKey, item.base, s.slug)
+  return `${item.base}/${s.slug}`
+}
 </script>
 
 <style scoped>

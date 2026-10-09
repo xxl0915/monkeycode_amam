@@ -18,8 +18,8 @@ src/data/
 |------|------|
 | `catalogs.js` | 导出 `productCatalog`、`modelCatalog`、`podCatalog`、`deriveCatalog`、`onlineModels`、`searchIndex`、`helpFaqs` 等 |
 | `sceneSchemas.json` | 服务端 `GET /scenes` 与前端 `ProductSceneView` 共享的场景契约 |
-| `business.js` | `getBusinessCategory`、`getBusinessScenes`、`findBusinessScene`、`filterBusinessScenes`、`sceneRoute` |
-| `business.json` | 业务分类原始数据；营销 14 个场景 `targetRoute` 到商品图工作台；平面设计 6 个场景复用卖点图/拼图/打印尺寸/细节图/详情页；电商素材 11 个出图入口复用已有工作台，文案/标题仍为逐步接入；工具箱白底/抠图/超清/扩图/消除/万能改图已接入 `/tools/ai/{slug}` |
+| `business.js` | `getBusinessCategory`、`getBusinessScenes`、`findBusinessScene`、`filterBusinessScenes`、`sceneRoute`、`catalogNavRoute` |
+| `business.json` | 业务分类原始数据；营销 14、平面 6、电商素材 11 个出图入口复用已有工作台；工具箱剩余出图入口与跨境套图入口同样 `targetRoute` 复用；证件照/检测/文案/视频仍为逐步接入 |
 
 ## 依赖
 

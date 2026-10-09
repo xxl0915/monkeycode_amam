@@ -715,6 +715,10 @@ test('graphic-design catalog maps every scene to an implemented workbench', asyn
     const slug = scene.targetRoute.split('/').pop()
     assert.equal(slugs.has(slug), true, slug)
   }
+  const bySlug = Object.fromEntries(scenes.map((scene) => [scene.slug, scene]))
+  for (const [slug, targetRoute] of Object.entries(expected)) {
+    assert.equal(bySlug[slug].targetRoute || `/graphic-design/${slug}`, targetRoute, slug)
+  }
 })
 
 test('ecommerce-assets catalog maps compose scenes and keeps copy planned', async () => {
@@ -745,6 +749,76 @@ test('ecommerce-assets catalog maps compose scenes and keeps copy planned', asyn
   assert.equal(scenes['title-generator'].capability, 'planned')
   assert.equal(scenes['ai-copywriting'].targetRoute, undefined)
   assert.equal(scenes['title-generator'].targetRoute, undefined)
+  for (const [slug, targetRoute] of Object.entries(expected)) {
+    const scene = scenes[slug]
+    assert.equal(scene.capability, 'implemented', slug)
+    assert.equal(scene.targetRoute, targetRoute, slug)
+    const workbench = targetRoute.split('/').pop()
+    assert.equal(slugs.has(workbench), true, workbench)
+  }
+})
+
+test('toolbox remaining image scenes map to existing workbenches', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const cats = JSON.parse(readFileSync(join(root, 'src/data/business.json'), 'utf8'))
+  const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
+  const slugs = new Set(schemas.map((scene) => scene.slug))
+  const expected = {
+    'product-explode': '/product-images/detail-sheet',
+    'logo-design': '/pod-images/print-design',
+    'image-translate': '/tools/ai/ai-edit',
+    'product-pile': '/product-images/product-composite',
+    'ai-text-edit': '/tools/ai/ai-edit',
+    'multi-image-fusion': '/product-images/product-composite',
+    'photo-style-transfer': '/pod-images/style-transfer',
+    'lineart-studio': '/derive-images/tech-sketch',
+    'smart-layout': '/graphic-design/print-size',
+    'limb-fix': '/tools/ai/ai-edit',
+    'clothes-fix': '/product-images/wrinkle-remove',
+    'shoes-fix': '/tools/ai/ai-edit'
+  }
+  const deferred = ['id-photo', 'pro-portrait', 'art-portrait', 'pre-check', 'click-rate']
+  const toolbox = cats.find((item) => item.key === 'toolbox')
+  const scenes = Object.fromEntries(toolbox.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
+  for (const slug of deferred) {
+    assert.equal(scenes[slug].capability, 'planned', slug)
+    assert.equal(scenes[slug].targetRoute, undefined, slug)
+  }
+  for (const [slug, targetRoute] of Object.entries(expected)) {
+    const scene = scenes[slug]
+    assert.equal(scene.capability, 'implemented', slug)
+    assert.equal(scene.targetRoute, targetRoute, slug)
+    const workbench = targetRoute.split('/').pop()
+    assert.equal(slugs.has(workbench), true, workbench)
+  }
+  assert.equal(scenes['id-photo'].targetRoute || '/tools/ai/id-photo', '/tools/ai/id-photo')
+})
+
+test('cross-border image-set scenes map and listing text stays planned', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const cats = JSON.parse(readFileSync(join(root, 'src/data/business.json'), 'utf8'))
+  const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
+  const slugs = new Set(schemas.map((scene) => scene.slug))
+  const expected = {
+    'platform-image-set': '/product-images/suite',
+    'language-size-matrix': '/product-images/clothing-ztc',
+    'aplus-brand-story': '/product-images/detail-page',
+    'sku-listing-pack': '/product-images/sku-image'
+  }
+  const deferred = ['listing-generate', 'listing-localize', 'listing-compliance']
+  const catalog = cats.find((item) => item.key === 'cross-border')
+  const scenes = Object.fromEntries(catalog.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
+  assert.equal(Object.keys(scenes).length, 7)
+  for (const slug of deferred) {
+    assert.equal(scenes[slug].capability, 'planned', slug)
+    assert.equal(scenes[slug].targetRoute, undefined, slug)
+  }
   for (const [slug, targetRoute] of Object.entries(expected)) {
     const scene = scenes[slug]
     assert.equal(scene.capability, 'implemented', slug)

@@ -60,7 +60,15 @@ const router = createRouter({
         { path: 'tools/ai/outpaint-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'outpaint-pro' } },
         { path: 'tools/ai/eliminate-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'eliminate-pro' } },
         { path: 'tools/ai/remove-watermark', component: ProductSceneView, props: { kind: 'tool', scene: 'remove-watermark' } },
-        { path: 'tools/ai/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'toolbox' } },
+        {
+          path: 'tools/ai/:scene',
+          component: BusinessScenePlanView,
+          meta: { businessCategory: 'toolbox' },
+          beforeEnter(to) {
+            const scene = findBusinessScene('toolbox', to.params.scene)
+            if (scene?.targetRoute && scene.targetRoute !== to.path) return scene.targetRoute
+          }
+        },
         { path: 'tools/:tool', component: PhotoEditView },
         { path: 'photo-edit', component: PhotoEditView },
         { path: 'graphic-design', component: BusinessCatalogView, meta: { businessCategory: 'graphic-design' } },
@@ -97,7 +105,15 @@ const router = createRouter({
           }
         },
         { path: 'cross-border', component: BusinessCatalogView, meta: { businessCategory: 'cross-border' } },
-        { path: 'cross-border/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'cross-border' } },
+        {
+          path: 'cross-border/:scene',
+          component: BusinessScenePlanView,
+          meta: { businessCategory: 'cross-border' },
+          beforeEnter(to) {
+            const scene = findBusinessScene('cross-border', to.params.scene)
+            if (scene?.targetRoute) return scene.targetRoute
+          }
+        },
         { path: 'image-creation', component: BusinessCatalogView, meta: { businessCategory: 'image-creation' } },
         { path: 'image-creation/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'image-creation' } },
         { path: 'learn', component: BusinessCatalogView, meta: { businessCategory: 'learn' } },

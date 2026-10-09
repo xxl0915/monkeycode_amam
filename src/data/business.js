@@ -26,3 +26,10 @@ export function sceneRoute(category, scene) {
   if (scene?.targetRoute) return scene.targetRoute
   return `${category?.path || ''}/${scene?.slug || ''}`
 }
+
+export function catalogNavRoute(categoryKey, base, slug) {
+  const category = getBusinessCategory(categoryKey)
+  const scene = findBusinessScene(categoryKey, slug)
+  if (scene) return sceneRoute(category, scene)
+  return `${base}/${slug}`
+}
