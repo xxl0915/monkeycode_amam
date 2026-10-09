@@ -8,7 +8,8 @@
 server/
 ├── index.js     # HTTP 入口、路由分发、鉴权、请求体读取
 ├── db.js        # JSON 持久化与积分账本
-├── worker.js    # 假 Worker 状态推进与结算/退款
+├── worker.js    # 任务推进：fake 样图或 live 代调
+├── vendor.js    # 按模型凭证调用上游 Images API
 ├── catalog.js   # 场景契约、模型列表、样图池
 └── data/
     ├── db.json  # 运行时数据（gitignore）
@@ -22,7 +23,8 @@ server/
 | `index.js` | 路由分发：`/api/v1/*`，`sendJson`、`readBody`、`currentUser`、`issueToken` |
 | `db.js` | `state`、`save`、`newId`、`addLedger`、`creditUser`、`freezeCredits`、`settleCredits`、`refundCredits`、`reconcileLedger`、`writeAssetFile`、`readAssetFile` |
 | `worker.js` | `startJob(jobId)`：`queued → running → succeeded/failed` |
-| `catalog.js` | `sceneSchemas`、`getScene`、`models`、`samplePool` |
+| `vendor.js` | `generateForJob(job)` / `buildPrompt(job)`：读 `AMAM_VENDOR_*`、按场景契约组装提示词、调用 `/v1/images/generations` 或 `/edits`。SenseNova 编辑走 JSON `images[].image_url` Data-URL，`watermark: false`、`prompt_extend: false`；多张时连打 `n=1`。提示词固定禁止发明画面文字 |
+| `catalog.js` | `sceneSchemas`、`getScene`、`models`（对齐 `onlineModels`）、`samplePool` |
 
 ## 依赖
 

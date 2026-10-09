@@ -421,6 +421,7 @@ import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { onlineModels } from '../data/catalogs'
 import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
+import { friendlyJobError } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const maxImages = 5
@@ -514,7 +515,7 @@ const form = reactive({
   sales_region: '',
   platform: '淘宝',
   language: '中文简体',
-  no_text: false,
+  no_text: true,
   text_required: false,
   a_plus_standard_count: 1,
   a_plus_premium_count: 0,
@@ -690,13 +691,13 @@ async function generate() {
         main: index === mainImageIndex.value
       }))
     const job = await createJob({
-      scene: '商品套图',
+      scene: 'suite',
       model: form.model_id,
       params: { ...form, outputCount: totalCount.value },
       refs
     })
     const finished = await pollJob(job.id)
-    if (finished.status !== 'succeeded') throw new Error(finished.error || '生成失败，请稍后重试')
+    if (finished.status !== 'succeeded') throw new Error(friendlyJobError(finished.error))
     const items = (finished.outputs || []).map((output, i) => ({
       id: `${finished.id}-${output.index ?? i}`,
       slot: slotLabel[slotKeys[i]] || '套图',

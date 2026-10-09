@@ -9,7 +9,8 @@ import {
   podScenes,
   productScenes,
   toolGroups,
-  videoGroups
+  videoGroups,
+  onlineModels
 } from '../src/data/catalogs.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -44,13 +45,7 @@ export const samplePool = [
   '/product-scenes/samples/material-apply.webp'
 ]
 
-export const models = [
-  { id: 'seedream-4.0', name: 'Seedream 4.0', video: false },
-  { id: 'gpt-image-1', name: 'GPT Image 1', video: false },
-  { id: 'flux-kontext', name: 'FLUX Kontext', video: false },
-  { id: 'nano-banana', name: 'Nano Banana', video: false },
-  { id: 'seedance-1.0', name: 'Seedance 1.0', video: true }
-]
+export const models = onlineModels.map(({ id, name, video }) => ({ id, name, video }))
 
 export function getScene(idOrTitle) {
   const schema = sceneSchemas.find((scene) => scene.slug === idOrTitle || scene.title === idOrTitle)

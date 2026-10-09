@@ -18,6 +18,7 @@ import InfiniteCanvasView from './views/InfiniteCanvasView.vue'
 import {
   productCatalog, podCatalog, deriveCatalog, moreCategories, localTools
 } from './data/catalogs'
+import { findBusinessScene } from './data/business'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -48,28 +49,53 @@ const router = createRouter({
         { path: 'tools', component: ToolsView },
         { path: 'tools/photo-edit', redirect: '/photo-edit' },
         { path: 'tools/ai', component: BusinessCatalogView, meta: { businessCategory: 'toolbox' } },
-        { path: 'tools/ai/layer-split', component: WorkbenchView, props: { kind: 'tool', scene: 'layer-split' } },
-        { path: 'tools/ai/watermark-pro', component: WorkbenchView, props: { kind: 'tool', scene: 'watermark-pro' } },
+        { path: 'tools/ai/layer-split', component: ProductSceneView, props: { kind: 'tool', scene: 'layer-split' } },
+        { path: 'tools/ai/watermark-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'watermark-pro' } },
+        { path: 'tools/ai/ai-edit', component: ProductSceneView, props: { kind: 'tool', scene: 'ai-edit' } },
+        { path: 'tools/ai/white-bg', component: ProductSceneView, props: { kind: 'tool', scene: 'white-bg' } },
+        { path: 'tools/ai/cutout-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'cutout-pro' } },
+        { path: 'tools/ai/upscale', component: ProductSceneView, props: { kind: 'tool', scene: 'upscale' } },
+        { path: 'tools/ai/upscale-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'upscale-pro' } },
+        { path: 'tools/ai/outpaint', component: ProductSceneView, props: { kind: 'tool', scene: 'outpaint' } },
+        { path: 'tools/ai/outpaint-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'outpaint-pro' } },
+        { path: 'tools/ai/eliminate-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'eliminate-pro' } },
+        { path: 'tools/ai/remove-watermark', component: ProductSceneView, props: { kind: 'tool', scene: 'remove-watermark' } },
         { path: 'tools/ai/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'toolbox' } },
         { path: 'tools/:tool', component: PhotoEditView },
         { path: 'photo-edit', component: PhotoEditView },
         { path: 'graphic-design', component: BusinessCatalogView, meta: { businessCategory: 'graphic-design' } },
-        { path: 'graphic-design/print-size', component: WorkbenchView, props: { kind: 'graphic', scene: 'print-size' } },
-        { path: 'graphic-design/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'graphic-design' } },
+        { path: 'graphic-design/print-size', component: ProductSceneView, props: { kind: 'graphic', scene: 'print-size' } },
+        {
+          path: 'graphic-design/:scene',
+          component: BusinessScenePlanView,
+          meta: { businessCategory: 'graphic-design' },
+          beforeEnter(to) {
+            const scene = findBusinessScene('graphic-design', to.params.scene)
+            if (scene?.targetRoute && scene.targetRoute !== to.path) return scene.targetRoute
+          }
+        },
         {
           path: 'pod-images',
           component: CatalogView,
           props: { title: '图片POD', kicker: '从图案提取到商品呈现', catalog: podCatalog, base: '/pod-images' }
         },
-        { path: 'pod-images/:scene', component: WorkbenchView, props: (r) => ({ kind: 'pod', scene: r.params.scene }) },
+        { path: 'pod-images/:scene', component: ProductSceneView, props: (r) => ({ kind: 'pod', scene: r.params.scene }) },
         {
           path: 'derive-images',
           component: CatalogView,
           props: { title: '爆款衍生', kicker: '从爆款、灵感和融合关系中找到下一款', catalog: deriveCatalog, base: '/derive-images' }
         },
-        { path: 'derive-images/:scene', component: WorkbenchView, props: (r) => ({ kind: 'derive', scene: r.params.scene }) },
+        { path: 'derive-images/:scene', component: ProductSceneView, props: (r) => ({ kind: 'derive', scene: r.params.scene }) },
         { path: 'marketing', component: BusinessCatalogView, meta: { businessCategory: 'marketing' } },
-        { path: 'marketing/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'marketing' } },
+        {
+          path: 'marketing/:scene',
+          component: BusinessScenePlanView,
+          meta: { businessCategory: 'marketing' },
+          beforeEnter(to) {
+            const scene = findBusinessScene('marketing', to.params.scene)
+            if (scene?.targetRoute) return scene.targetRoute
+          }
+        },
         { path: 'cross-border', component: BusinessCatalogView, meta: { businessCategory: 'cross-border' } },
         { path: 'cross-border/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'cross-border' } },
         { path: 'image-creation', component: BusinessCatalogView, meta: { businessCategory: 'image-creation' } },
@@ -77,7 +103,15 @@ const router = createRouter({
         { path: 'learn', component: BusinessCatalogView, meta: { businessCategory: 'learn' } },
         { path: 'learn/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'learn' } },
         { path: 'ecommerce-assets', component: BusinessCatalogView, meta: { businessCategory: 'material' } },
-        { path: 'ecommerce-assets/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'material' } },
+        {
+          path: 'ecommerce-assets/:scene',
+          component: BusinessScenePlanView,
+          meta: { businessCategory: 'material' },
+          beforeEnter(to) {
+            const scene = findBusinessScene('material', to.params.scene)
+            if (scene?.targetRoute) return scene.targetRoute
+          }
+        },
         { path: 'templates', component: SimplePage, props: { title: '海量模板', kicker: '浏览电商创作模板', body: '按主图、详情、种草和海报分类浏览可直接带入工作台的模板。' } },
         { path: 'docs', component: DocsView },
         { path: 'about', component: AboutView },

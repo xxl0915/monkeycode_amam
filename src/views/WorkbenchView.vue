@@ -66,6 +66,7 @@ import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { productScenes, modelScenes, videoGroups, graphicGroups, podScenes, deriveScenes, marketingScenes, toolGroups, onlineModels } from '../data/catalogs'
 import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
+import { friendlyJobError } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({ kind: String, scene: String })
@@ -144,7 +145,7 @@ async function generate() {
       refs: refs.value.filter((item) => item.url).map((item, i) => ({ role: 'reference', name: item.name || `ref-${i + 1}`, url: item.url, assetId: item.assetId }))
     })
     const finished = await pollJob(job.id)
-    if (finished.status !== 'succeeded') throw new Error(finished.error || '生成失败，请稍后重试')
+    if (finished.status !== 'succeeded') throw new Error(friendlyJobError(finished.error))
     ;(finished.outputs || []).forEach((output, i) => {
       results.value.unshift({
         id: `${finished.id}-${output.index ?? i}`,

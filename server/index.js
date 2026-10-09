@@ -192,7 +192,19 @@ async function handle(req, res, url) {
   const path = url.pathname
   const method = req.method || 'GET'
 
-  if (path === '/api/v1/health') return sendJson(res, 200, { ok: true })
+  if (path === '/' || path === '/health' || path === '/api/v1/health') {
+    const accept = String(req.headers.accept || '')
+    if (path !== '/api/v1/health' && accept.includes('text/html')) {
+      const html = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>amam API</title></head><body><p>amam API 运行中。网页请打开前端 5173 预览。</p><p><a href="/api/v1/health">/api/v1/health</a></p></body></html>'
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': Buffer.byteLength(html),
+        'Access-Control-Allow-Origin': '*'
+      })
+      return res.end(html)
+    }
+    return sendJson(res, 200, { ok: true, service: 'amam-api' })
+  }
 
   if (path === '/api/v1/auth/login' && method === 'POST') {
     const body = await readBody(req)

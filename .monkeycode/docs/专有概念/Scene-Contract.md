@@ -4,7 +4,7 @@
 
 ## 什么是 Scene Contract？
 
-场景契约是 `src/data/sceneSchemas.json` 中定义的对象集合，共 50 个场景。每个契约声明该场景的 slug、标题、分组、参考素材角色（`roles`）、表单字段（`fields`）、最大输出数（`maxOutputs`）、默认比例（`defaultRatio`）、产出模式（`outputMode`）与提示说明（`instruction`）。业务目录（`src/data/catalogs.js`）则描述更广的场景清单（覆盖视频、工具、POD、爆款衍生等，共约 128 个场景）。
+场景契约是 `src/data/sceneSchemas.json` 中定义的对象集合，共 88 个场景。每个契约声明该场景的 slug、标题、分组、参考素材角色（`roles`）、表单字段（`fields`）、最大输出数（`maxOutputs`）、默认比例（`defaultRatio`）、产出模式（`outputMode`）与提示说明（`instruction`）。业务目录（`src/data/catalogs.js`）则描述更广的场景清单（覆盖视频、工具、POD、爆款衍生等）。平面设计与电商素材出图入口通过 `targetRoute` 复用这些契约。Worker 的 `buildPrompt` 按契约把 `instruction`、角色标签与非空字段编进上游提示词。
 
 **关键特征**:
 
@@ -12,6 +12,7 @@
 - `slug` 与 `title` 均唯一，可作为场景标识
 - 服务端校验取 `sceneSchemas.json` 与 `catalogs.js` 的并集
 - 工作台 `ProductSceneView` 依据契约动态渲染输入表单与结果区
+- 提交任务时 `scene` 使用契约 `slug`；服务端同时接受 `slug` 与 `title`
 
 ## 代码位置
 

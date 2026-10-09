@@ -40,7 +40,7 @@ Entries discovered by the Agent during task execution should follow this format:
   - Vite `server` and `preview` both proxy `/api` to `http://127.0.0.1:8787`; generation and asset thumbnails need both `npm run server` and `npm run dev` (or `preview`).
   - Runtime data is persisted to `server/data/db.json` (gitignored); deleting it resets users, credits, jobs and assets.
   - Uploaded reference images live in `server/data/files/` next to `db.json`; `AMAM_DB_FILE` also relocates that files directory.
-  - Upstream model vendors are not integrated; the fake worker produces sample images from `public/product-scenes/samples/`.
+  - Image jobs in `AMAM_VENDOR_MODE=live` call per-model OpenAI-compatible Images APIs via `server/vendor.js`; keys stay in `AMAM_VENDOR_*` env vars. `AMAM_VENDOR_MODE=fake` (used by `npm test`) still serves `public/product-scenes/samples/`.
 
 [Project Knowledge Summary]
 - Date: 2026-09-22
@@ -59,3 +59,11 @@ Entries discovered by the Agent during task execution should follow this format:
   - Run tests with `npm test` (`node --test tests/generation-pipeline.test.js`).
   - Tests isolate storage via `AMAM_DB_FILE` so they do not touch `server/data/db.json`.
   - `settleCredits` / `refundCredits` are idempotent for the same `jobId`.
+
+[User Instruction Summary]
+- Date: 2026-10-08
+- Context: User reported garbled/invented characters on generated product images and asked to avoid this going forward
+- Instructions:
+  - Generated images must not invent, misspell, or hallucinate on-image text, logos, prices, or slogans.
+  - If the user did not supply exact copy, output a text-free product photo and keep only real brand marks already on the product.
+  - SenseNova calls use `prompt_extend: false`; `buildPrompt` always appends the typography policy.

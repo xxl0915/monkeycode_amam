@@ -95,7 +95,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export async function pollJob(id, { interval = 1000, timeout = 60000 } = {}) {
+export async function pollJob(id, { interval = 1000, timeout = 180000 } = {}) {
   const deadline = Date.now() + timeout
   let job = store.jobs.find((item) => item.id === id) || (await api.getJob(id)).job
   while (job.status === 'queued' || job.status === 'running') {

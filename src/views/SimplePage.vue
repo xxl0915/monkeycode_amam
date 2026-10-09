@@ -32,6 +32,7 @@
 </template>
 <script setup>
 import { onMounted } from 'vue'
+import { friendlyJobError } from '../api/client'
 import { store, loadJobs, deleteJob } from '../store'
 
 const props = defineProps({
@@ -48,6 +49,7 @@ onMounted(() => {
 
 const labels = { queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败' }
 function statusLabel(job) {
+  if (job.status === 'failed') return friendlyJobError(job.error)
   return labels[job.status] || job.status
 }
 function when(job) {

@@ -1,5 +1,6 @@
 import { samplePool } from './catalog.js'
-import { refundCredits, save, settleCredits, state } from './db.js'
+import { newId, refundCredits, save, settleCredits, state, writeAssetFile } from './db.js'
+import { extForMime, generateForJob, sniffImageMime, vendorMode } from './vendor.js'
 
 const runningDelay = 600
 const finishDelay = 2200
@@ -19,19 +20,51 @@ function hash(text) {
   return h
 }
 
-function finish(job, status, error) {
+function persistOutputs(job, images) {
+  return images.map((image, index) => {
+    const mime = image.mime || sniffImageMime(image.bytes) || 'image/png'
+    const ext = extForMime(mime)
+    const assetId = newId('ast')
+    const filename = `${assetId}.${ext}`
+    writeAssetFile(filename, image.bytes)
+    const asset = {
+      id: assetId,
+      userId: job.userId,
+      name: `${job.id}-${index}.${ext}`,
+      role: 'output',
+      mime,
+      size: image.bytes.length,
+      file: `files/${filename}`,
+      url: `/api/v1/assets/${assetId}/file`,
+      createdAt: Date.now()
+    }
+    state.assets[assetId] = asset
+    return { index, url: asset.url, assetId }
+  })
+}
+
+function finish(job, status, extra) {
   const user = state.users[job.userId]
   if (!user) return
   job.status = status
   job.finishedAt = Date.now()
   if (status === 'succeeded') {
-    job.outputs = outputsFor(job)
+    job.outputs = extra || []
     settleCredits(user, job.cost, job.id)
   } else {
-    job.error = error || 'generation_failed'
+    job.error = extra || 'generation_failed'
     refundCredits(user, job.cost, job.id)
   }
   save()
+}
+
+async function runLive(job) {
+  try {
+    const images = await generateForJob(job)
+    finish(job, 'succeeded', persistOutputs(job, images))
+  } catch (error) {
+    finish(job, 'failed', error?.code || 'generation_failed')
+  }
 }
 
 export function startJob(jobId) {
@@ -48,7 +81,14 @@ export function startJob(jobId) {
   setTimeout(() => {
     const current = state.jobs[jobId]
     if (!current || current.status !== 'running') return
-    if (current.params?.simulateFail) finish(current, 'failed', 'model_timeout')
-    else finish(current, 'succeeded')
+    if (current.params?.simulateFail) {
+      finish(current, 'failed', 'model_timeout')
+      return
+    }
+    if (vendorMode() === 'fake') {
+      finish(current, 'succeeded', outputsFor(current))
+      return
+    }
+    runLive(current)
   }, finishDelay)
 }

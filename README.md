@@ -12,5 +12,5 @@ npm run server
 npm run dev
 ```
 
-商品套图、商品场景与工作台的生成请求会提交到本地 API，由假 Worker 异步产出示例结果；账号、积分与作品记录以 API 为准，数据保存在 `server/data/db.json`。
+商品套图、商品场景与工作台的生成请求会提交到本地 API。`AMAM_VENDOR_MODE=live`（缺省）时由服务端按模型凭证代调上游图像接口，结果落为资产；`AMAM_VENDOR_MODE=fake` 时仍用样图。厂商 Key 只放在服务端环境变量（见 `.env.example`），账号、积分与作品记录以 API 为准，数据保存在 `server/data/db.json`。
 

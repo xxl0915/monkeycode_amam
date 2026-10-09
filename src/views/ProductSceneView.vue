@@ -184,6 +184,7 @@ import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import sceneSchemas from '../data/sceneSchemas.json'
 import { onlineModels, plazaModels } from '../data/catalogs'
 import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
+import { friendlyJobError } from '../api/client'
 import { store, createJob, pollJob } from '../store'
 
 const props = defineProps({
@@ -194,7 +195,13 @@ const props = defineProps({
 const route = useRoute()
 const sceneSlug = computed(() => props.scene || String(route.params.scene || ''))
 const kind = computed(() => props.kind || (route.path.startsWith('/model-images') ? 'model' : 'product'))
-const kindLabel = computed(() => (kind.value === 'model' ? '模特图' : '商品图'))
+const kindLabel = computed(() => ({
+  model: '模特图',
+  pod: '图片POD',
+  derive: '爆款衍生',
+  tool: '图片工具',
+  graphic: '平面设计'
+}[kind.value] || '商品图'))
 const schema = computed(() => sceneSchemas.find((s) => s.slug === sceneSlug.value) || null)
 const models = onlineModels.filter((m) => !m.video)
 
@@ -384,13 +391,13 @@ async function generate() {
     )
     const modelId = models[0]?.id || ''
     const job = await createJob({
-      scene: schema.value.title,
+      scene: schema.value.slug,
       model: modelId,
       params: { ...form, outputCount: outputCount.value, ratio: form.ratio || schema.value.defaultRatio },
       refs
     })
     const finished = await pollJob(job.id)
-    if (finished.status !== 'succeeded') throw new Error(finished.error || '生成失败，请稍后重试')
+    if (finished.status !== 'succeeded') throw new Error(friendlyJobError(finished.error))
     const ratio = form.ratio || schema.value.defaultRatio || '3:4'
     ;(finished.outputs || []).forEach((output, i) => {
       results.value.unshift({

@@ -153,17 +153,17 @@
 { "scenes": [ { "slug": "suite", "title": "商品套图", "group": "...", "roles": [], "fields": [], "maxOutputs": 4, "defaultRatio": "3:4", "outputMode": "...", "instruction": "..." } ] }
 ```
 
-数据来源：`src/data/sceneSchemas.json`（共 50 个场景）。
+数据来源：`src/data/sceneSchemas.json`（共 88 个场景，含商品图、模特图、POD、爆款衍生、图层拆分 / 去水印 Pro / 打印尺寸，以及白底、抠图、超清、扩图、消除、万能改图）。平面设计与电商素材出图入口复用这些契约，不新增 slug。
 
 ### GET /api/v1/models
 
 响应 `200`：
 
 ```json
-{ "models": [ { "id": "seedream-4.0", "name": "Seedream 4.0", "video": false } ] }
+{ "models": [ { "id": "seedream", "name": "Seedream 4.5", "video": false } ] }
 ```
 
-内置 5 个模型：`seedream-4.0`、`gpt-image-1`、`flux-kontext`、`nano-banana`、`seedance-1.0`（`seedance-1.0` 为 `video: true`）。
+与前端 `onlineModels` 对齐：`nano-banana`、`nano-pro`、`seedream`、`gpt-image`（图像），以及 `kling`、`seedance`（`video: true`，本阶段创建任务后以 `unsupported_model` 失败并退款）。
 
 ### POST /api/v1/jobs
 
@@ -203,7 +203,7 @@
 返回当前令牌用户的任务，按 `createdAt` 倒序：
 
 ```json
-{ "jobs": [ { "id": "job_...", "status": "succeeded", "outputs": [ { "index": 0, "url": "/product-scenes/samples/suite.webp" } ] } ] }
+{ "jobs": [ { "id": "job_...", "status": "succeeded", "outputs": [ { "index": 0, "url": "/api/v1/assets/ast_.../file", "assetId": "ast_..." } ] } ] }
 ```
 
 ### GET /api/v1/jobs/:id 与 DELETE /api/v1/jobs/:id
@@ -211,6 +211,8 @@
 - 任务不存在或不属于当前用户：`404 not_found`（按令牌隔离）
 - `GET` 返回 `{ "job": { ... } }`
 - `DELETE` 成功返回 `{ "ok": true, "user": { ... } }`；若任务仍在 `queued` / `running`，会退还已冻结积分
+- `AMAM_VENDOR_MODE=live` 时成功 `outputs[].url` 为 `/api/v1/assets/{id}/file`；`fake` 时仍为 `/product-scenes/samples/...`
+- 任务失败时 `job.error` 可能为 `vendor_unconfigured`、`vendor_error`、`vendor_timeout`、`vendor_empty`、`unsupported_model`
 
 ## 前端模块接口
 
@@ -254,7 +256,7 @@ api.deleteJob(id)                  // DELETE /jobs/:id
 | `loadJobs()` | 加载当前用户任务列表 |
 | `createJob(payload)` | 创建任务并把新任务插入列表头部，同步积分 |
 | `deleteJob(id)` | 删除任务并从列表移除 |
-| `pollJob(id, { interval, timeout })` | 轮询任务直至 `succeeded`/`failed` 或超时（默认 1s 间隔、60s 超时） |
+| `pollJob(id, { interval, timeout })` | 轮询任务直至 `succeeded`/`failed` 或超时（默认 1s 间隔、180s 超时） |
 | `formatCredits(n)` | 格式化为「x,xxx.xx 积分」 |
 
 ### 组件接口

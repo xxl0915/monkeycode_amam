@@ -6,7 +6,7 @@ amam 是复刻 [aigc.easysu.cn](https://aigc.easysu.cn/) 的 AI 视觉创作平�
 
 **核心职责**:
 
-- 提供多业务入口（商品图、模特图、AI 视频、图片工具、平面设计、POD、爆款衍生、营销、跨境等）的目录与工作台界面
+- 提供多业务入口（商品图、模特图、AI 视频、图片工具、平面设计、电商素材、POD、爆款衍生、营销、跨境等）的目录与工作台界面
 - 收集场景参数与参考素材，调用服务端任务接口并轮询展示结果
 - 以服务端会话与积分账本为准，维护登录态与积分展示
 - 承载独立的无限画布子应用（`/ic/`）
@@ -31,7 +31,7 @@ amam 是复刻 [aigc.easysu.cn](https://aigc.easysu.cn/) 的 AI 视觉创作平�
 npm install
 ```
 
-本项目没有 `.env` 文件，运行时配置通过命令行参数或环境变量传入。
+凭证占位见仓库根目录 `.env.example`。复制为 `.env` 后自行填入真实值；`.env` 已被 gitignore。
 
 ### 环境变量
 
@@ -39,6 +39,11 @@ npm install
 |------|------|------|------|
 | `API_PORT` | 否 | 本地 API 监听端口，优先于 `PORT` | `8787` |
 | `PORT` | 否 | 本地 API 监听端口（回退） | `8787` |
+| `AMAM_VENDOR_MODE` | 否 | `fake` 用样图；缺省或 `live` 代调上游 | `live` |
+| `AMAM_VENDOR_TIMEOUT_MS` | 否 | 上游等待时限，缺省 120000 | `120000` |
+| `AMAM_VENDOR_<MODEL>_API_KEY` | live 下该模型需要 | 该图像模型的上游 Key | `your-api-key-here` |
+| `AMAM_VENDOR_<MODEL>_BASE_URL` | live 下该模型需要 | 该图像模型的上游 Base URL | `https://api.example.com/v1` |
+| `AMAM_VENDOR_<MODEL>_MODEL` | 否 | 上游模型名；SenseNova 槽位缺省 `sensenova-u1.5-fast` / `sensenova-u1.5-lite` | `sensenova-u1.5-fast` |
 
 API 默认监听 `0.0.0.0:8787`。`vite.config.js` 中开发代理固定指向 `http://127.0.0.1:8787`，修改端口时需同步调整代理目标。
 
@@ -58,7 +63,7 @@ npm run build
 npm run preview
 ```
 
-预览服务器不包含 `/api` 代理，需要接口时请使用 `npm run dev` 并单独运行 `npm run server`。
+Vite `dev` 与 `preview` 都将 `/api` 代理到 `http://127.0.0.1:8787`，生成与资产缩略图需要同时运行 `npm run server`。
 
 ## 开发工作流
 

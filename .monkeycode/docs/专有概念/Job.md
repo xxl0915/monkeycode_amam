@@ -4,14 +4,14 @@ Job 表示一次生成请求的服务端记录，是前端工作台与服务端�
 
 ## 什么是 Job？
 
-Job 代表「一次生成请求」从创建到结束的完整生命周期。用户在工作台提交参数后，服务端创建一条 `queued` 状态的 Job，由假 Worker 异步推进到 `running`，最终变为 `succeeded` 或 `failed`。前端通过轮询 `GET /jobs/:id` 获取最新状态与输出。
+Job 代表「一次生成请求」从创建到结束的完整生命周期。用户在工作台提交参数后，服务端创建一条 `queued` 状态的 Job，由 Worker 异步推进到 `running`。`AMAM_VENDOR_MODE=live` 时按模型凭证代调上游并把结果落为资产；`fake` 时产出样图。最终变为 `succeeded` 或 `failed`。前端通过轮询 `GET /jobs/:id` 获取最新状态与输出。
 
 **关键特征**:
 
 - 与用户强绑定，按令牌隔离
 - 创建时立即冻结固定积分（`COST_PER_JOB = 4`）
-- 成功产出样图，失败自动退款
-- 输出数量由 `params.outputCount`（或 `params.count`）决定
+- 成功时 `live` 产出资产 URL，`fake` 产出样图；失败自动退款
+- 输出数量由 `params.outputCount`（或 `params.count`）决定，live 钳制 1–8
 
 ## 代码位置
 
@@ -19,6 +19,7 @@ Job 代表「一次生成请求」从创建到结束的完整生命周期。用�
 |------|------|
 | 结构定义 | `server/index.js`（`POST /api/v1/jobs` 内构造） |
 | 状态推进 | `server/worker.js`（`startJob`、`finish`） |
+| 上游代调 | `server/vendor.js`（`generateForJob`） |
 | 接口 | `server/index.js`（`/api/v1/jobs` 系列路由） |
 | 前端提交 | `src/views/ProductSuiteView.vue`、`src/views/ProductSceneView.vue`、`src/views/WorkbenchView.vue` |
 | 前端轮询 | `src/store.js`（`createJob`、`pollJob`、`deleteJob`） |
@@ -29,8 +30,8 @@ Job 代表「一次生成请求」从创建到结束的完整生命周期。用�
 {
   id: 'job_...',          // 唯一标识
   userId: 'usr_...',      // 所属用户
-  scene: '商品主图',        // 场景（slug 或 title）
-  model: 'seedream-4.0',  // 模型 id
+  scene: 'hero-image',      // 场景（slug 或 title）
+  model: 'seedream',      // 模型 id，与 onlineModels 对齐
   params: {},             // 场景参数，含 outputCount
   refs: [],               // 参考素材 [{ role, name, url }]
   cost: 4,                // 冻结积分
@@ -69,8 +70,8 @@ Job 代表「一次生成请求」从创建到结束的完整生命周期。用�
 stateDiagram-v2
     [*] --> queued: POST /jobs
     queued --> running: 600ms 后
-    running --> succeeded: 2200ms 后成功
-    running --> failed: simulateFail
+    running --> succeeded: fake 样图或 live 落盘资产
+    running --> failed: 上游错误或 unsupported_model
     succeeded --> [*]: settleCredits
     failed --> [*]: refundCredits
 ```

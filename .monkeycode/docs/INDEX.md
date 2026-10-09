@@ -99,5 +99,6 @@ npm run preview
 | `src/router.js` | 全部路由定义 |
 | `src/store.js` | 全局会话与任务状态 |
 | `server/index.js` | API 入口与路由分发 |
+| `server/vendor.js` | 按模型凭证代调上游 Images API |
 | `server/db.js` | JSON 持久化与积分账本 |
 | `package.json` | 依赖与脚本 |

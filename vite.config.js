@@ -3,6 +3,66 @@ import { join } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+function disableViteWebsocket() {
+  const stub = `const hmrClient = {
+  dataMap: new Map(),
+  hotModulesMap: new Map(),
+  ctxToListenersMap: new Map(),
+  customListenersMap: new Map(),
+  disposeMap: new Map(),
+  pruneMap: new Map(),
+  currentFirstInvalidatedBy: undefined,
+  logger: { debug() {}, error() {} },
+  notifyListeners() {},
+  send() {}
+};
+export function createHotContext() {
+  return {
+    data: {},
+    accept() {},
+    dispose() {},
+    prune() {},
+    invalidate() {},
+    on() {},
+    off() {},
+    send() {}
+  };
+}
+const injected = new Map();
+export function injectQuery(url) { return url; }
+export function removeBase() { return ''; }
+export function updateStyle(id, css) {
+  if (typeof document === 'undefined') return;
+  let el = injected.get(id);
+  if (!el) {
+    el = document.createElement('style');
+    el.setAttribute('data-vite-dev-id', id);
+    document.head.appendChild(el);
+    injected.set(id, el);
+  }
+  el.textContent = css;
+}
+export function removeStyle(id) {
+  const el = injected.get(id);
+  if (!el) return;
+  el.remove();
+  injected.delete(id);
+}
+if (typeof window !== 'undefined') window.__vite_is_modern_browser = true;
+`
+  return {
+    name: 'disable-vite-websocket',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url || '').split('?')[0]
+        if (path !== '/@vite/client') return next()
+        res.setHeader('Content-Type', 'text/javascript')
+        res.end(stub)
+      })
+    }
+  }
+}
+
 function infiniteCanvasAssets() {
   const rewrite = (req, _res, next) => {
     const raw = req.url || ''
@@ -41,11 +101,13 @@ function infiniteCanvasAssets() {
 }
 
 export default defineConfig({
-  plugins: [vue(), infiniteCanvasAssets()],
+  plugins: [disableViteWebsocket(), vue(), infiniteCanvasAssets()],
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['.monkeycode-ai.online'],
+    allowedHosts: true,
+    hmr: false,
+    ws: false,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8787',
@@ -56,7 +118,7 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['.monkeycode-ai.online'],
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8787',

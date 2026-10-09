@@ -82,11 +82,20 @@ const ERROR_TEXT = {
   missing_scene: '请选择生成场景',
   insufficient_credits: '积分不足，请先充值',
   unauthorized: '登录已失效，请重新登录',
-  not_found: '资源不存在'
+  not_found: '资源不存在',
+  vendor_unconfigured: '该模型尚未配置服务端密钥',
+  vendor_error: '上游生成失败，积分已退回',
+  vendor_timeout: '上游响应超时，积分已退回',
+  vendor_empty: '上游未返回图片，积分已退回',
+  unsupported_model: '当前阶段仅支持图像模型'
 }
 
 function friendlyError(code, status) {
   return ERROR_TEXT[code] || (status ? `请求失败（${status}）` : '请求失败')
+}
+
+export function friendlyJobError(code) {
+  return ERROR_TEXT[code] || '生成失败，请稍后重试'
 }
 
 function mimeFromFile(file) {

@@ -10,10 +10,10 @@ src/
 │   ├── HomeView.vue              # 首页
 │   ├── CatalogView.vue           # 通用目录页（商品图/POD/衍生）
 │   ├── ProductSuiteView.vue      # 商品套图工作台（接任务管线）
-│   ├── ProductSceneView.vue      # 场景工作台，按 schema 动态渲染
-│   ├── WorkbenchView.vue         # 通用工作台（模特/视频/工具/平面/POD/衍生）
+│   ├── ProductSceneView.vue      # 场景工作台；商品/模特/POD/衍生/工具/打印尺寸按 schema 动态渲染
+│   ├── WorkbenchView.vue         # 通用工作台（视频实体获客等未契约化入口）
 │   ├── BusinessCatalogView.vue   # 业务分类目录
-│   ├── BusinessScenePlanView.vue # 业务场景方案页
+    │   ├── BusinessScenePlanView.vue # 业务场景方案页；营销、平面设计、电商素材入口若有 targetRoute 会先重定向
 │   ├── ModelPlazaView.vue        # 模特广场
 │   ├── ToolsView.vue             # 图片工具
 │   ├── PhotoEditView.vue         # 本地图片编辑
@@ -37,8 +37,8 @@ src/
 | 文件 | 目的 |
 |------|------|
 | `ProductSuiteView.vue` | 上传商品图、选择版位、提交 `createJob` 并轮询渲染套图结果 |
-| `ProductSceneView.vue` | 依据 `sceneSchemas.json` 动态渲染素材角色与字段，组装 refs 提交任务 |
-| `WorkbenchView.vue` | 通用工作台，把参数与参考图提交为任务并渲染输出 |
+| `ProductSceneView.vue` | 依据 `sceneSchemas.json` 动态渲染素材角色与字段，提交 `scene` slug 与带 `role` 的 refs |
+| `WorkbenchView.vue` | 通用工作台，服务尚未契约化的入口（如实体获客） |
 | `SimplePage.vue` | `/logs` 与 `/mylogs` 的任务列表，含状态、时间、缩略图与删除 |
 | `LoginModal.vue` | 异步登录/注册、`busy` 态、服务端错误展示 |
 | `PayModal.vue` | 调用 `recharge`，未登录时唤起登录弹窗 |
