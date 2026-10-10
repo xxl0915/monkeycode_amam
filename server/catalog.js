@@ -52,3 +52,7 @@ export function getScene(idOrTitle) {
   if (schema) return schema
   return catalogScenes.find((scene) => scene.slug === idOrTitle || scene.title === idOrTitle) || null
 }
+
+export function isTextScene(idOrTitle) {
+  return getScene(idOrTitle)?.outputMode === 'text'
+}

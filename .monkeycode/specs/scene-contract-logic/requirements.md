@@ -16,7 +16,7 @@ amam 已能对图像模型走服务端代调，但 Worker 只拼接场景名与�
 - **参考引用（Ref）**: 任务 `refs` 中的一项，包含 `role`、`name`、`url`，可选 `assetId`。
 - **提示词组装（Prompt Assembly）**: Worker 根据场景契约、角色与表单字段生成发给上游的文本提示词。
 - **P0 目标场景（P0 Target Scene）**: POD 目录 15 个场景、爆款衍生目录 11 个场景、以及 `layer-split`、`watermark-pro`、`print-size`。
-- **图像模型（Image Model）**: `video` 为假的模型 id：`nano-banana`、`nano-pro`、`seedream`、`gpt-image`。
+- **图像模型（Image Model）**: `video` 为假的模型 id：`nano-banana`、`nano-pro`、`seedream`、`gpt-image`、`gpt-image-25-sunburst`、`gpt-image-25-flare`、`gpt-image-25`。
 
 ## Requirements
 

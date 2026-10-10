@@ -86,7 +86,7 @@ const ERROR_TEXT = {
   vendor_unconfigured: '该模型尚未配置服务端密钥',
   vendor_error: '上游生成失败，积分已退回',
   vendor_timeout: '上游响应超时，积分已退回',
-  vendor_empty: '上游未返回图片，积分已退回',
+  vendor_empty: '上游未返回结果，积分已退回',
   unsupported_model: '当前阶段仅支持图像模型'
 }
 

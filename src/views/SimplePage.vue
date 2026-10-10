@@ -14,8 +14,9 @@
       <div v-else class="job-list">
         <article v-for="job in store.jobs" :key="job.id" class="job-card">
           <div class="job-thumbs">
-            <img v-for="output in job.outputs.slice(0, 4)" :key="output.url + output.index" :src="output.url" :alt="job.scene" />
-            <span v-if="!job.outputs.length" class="job-placeholder">{{ statusLabel(job) }}</span>
+            <img v-for="output in imageOutputs(job)" :key="output.url + output.index" :src="output.url" :alt="job.scene" />
+            <span v-if="textOutput(job)" class="job-placeholder">文案</span>
+            <span v-else-if="!job.outputs.length" class="job-placeholder">{{ statusLabel(job) }}</span>
           </div>
           <div class="job-body">
             <b>{{ job.scene }}</b>
@@ -48,6 +49,12 @@ onMounted(() => {
 })
 
 const labels = { queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败' }
+function imageOutputs(job) {
+  return (job.outputs || []).filter((output) => output.url).slice(0, 4)
+}
+function textOutput(job) {
+  return (job.outputs || []).some((output) => output.text && !output.url)
+}
 function statusLabel(job) {
   if (job.status === 'failed') return friendlyJobError(job.error)
   return labels[job.status] || job.status

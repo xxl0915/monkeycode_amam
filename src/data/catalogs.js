@@ -291,6 +291,9 @@ export const onlineModels = [
   { id: 'nano-pro', name: 'Nano Banana Pro', spec: '1K / 2K / 4K · 支持参考图', video: false, glow: '#f0abfc' },
   { id: 'seedream', name: 'Seedream 4.5', spec: '2K / 4K · 文字生图', video: false, glow: '#fb7185' },
   { id: 'gpt-image', name: 'GPT Image 1.5', spec: '1K / 2K · 支持参考图', video: false, glow: '#fbbf24' },
+  { id: 'gpt-image-25-sunburst', name: 'GPT Image 2.5 Sunburst', spec: '旗舰画质 · 吞吐 7t · ¥0.025', video: false, glow: '#f59e0b' },
+  { id: 'gpt-image-25-flare', name: 'GPT Image 2.5 Flare', spec: '最快档 · 性价比高 · ¥0.025', video: false, glow: '#38bdf8' },
+  { id: 'gpt-image-25', name: 'GPT Image 2.5', spec: '标准版 · 延迟 55s · 吞吐 3t', video: false, glow: '#818cf8' },
   { id: 'kling', name: 'Kling 2.1', spec: '5-10s · 720p / 1080p', video: true, glow: '#38bdf8' },
   { id: 'seedance', name: 'Seedance 1.5 Pro', spec: '4-12s · 支持参考图', video: true, glow: '#34d399' }
 ]

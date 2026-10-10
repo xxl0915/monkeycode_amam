@@ -54,11 +54,39 @@ const ROUTES = {
     base: 'AMAM_VENDOR_GPT_IMAGE_BASE_URL',
     model: 'AMAM_VENDOR_GPT_IMAGE_MODEL',
     fallbackModel: 'sensenova-u1.5-lite'
+  },
+  'gpt-image-25-sunburst': {
+    key: 'AMAM_VENDOR_GPT_IMAGE_25_API_KEY',
+    base: 'AMAM_VENDOR_GPT_IMAGE_25_BASE_URL',
+    model: 'AMAM_VENDOR_GPT_IMAGE_25_SUNBURST_MODEL',
+    fallbackModel: 'gpt-image-2.5-sunburst'
+  },
+  'gpt-image-25-flare': {
+    key: 'AMAM_VENDOR_GPT_IMAGE_25_API_KEY',
+    base: 'AMAM_VENDOR_GPT_IMAGE_25_BASE_URL',
+    model: 'AMAM_VENDOR_GPT_IMAGE_25_FLARE_MODEL',
+    fallbackModel: 'gpt-image-2.5-flare'
+  },
+  'gpt-image-25': {
+    key: 'AMAM_VENDOR_GPT_IMAGE_25_API_KEY',
+    base: 'AMAM_VENDOR_GPT_IMAGE_25_BASE_URL',
+    model: 'AMAM_VENDOR_GPT_IMAGE_25_MODEL',
+    fallbackModel: 'gpt-image-2.5'
   }
 }
 
-const TEXT_KEYS = ['prompt', 'product_info', 'extra_description', 'instruction', 'description']
+const TEXT_KEYS = ['prompt', 'product_info', 'extra_description', 'instruction', 'description', 'source_listing', 'listing_text', 'keywords']
+const IMAGE_TEXT_KEYS = new Set([
+  ...TEXT_KEYS,
+  'language',
+  'font_style',
+  'font_style_mode',
+  'text_amount_mode',
+  'text_required',
+  'brand_name'
+])
 const TEXT_POLICY = 'Typography: do not invent, misspell, or hallucinate logos, captions, prices, slogans, or Chinese/English characters. If the user did not supply exact copy, output a text-free product photo and keep only real brand marks already on the product. If exact copy is supplied, render only that copy spelled exactly and omit any other text.'
+const COPY_POLICY = 'Copy policy: use only facts supplied by the user. If price, certification, material, origin, or specification is missing, write 待补 instead of inventing it. Do not invent slogans, guarantees, or medical/legal claims.'
 
 function vendorError(code, message) {
   const err = new Error(message || code)
@@ -102,6 +130,21 @@ export function isSenseNovaRoute(route) {
   return model.startsWith('sensenova-') || base.includes('sensenova.cn')
 }
 
+export function isQiuqiuImageRoute(route) {
+  const model = String(route?.model || '').toLowerCase()
+  const base = String(route?.baseUrl || '').toLowerCase()
+  return model.startsWith('gpt-image-2.5') || base.includes('qiuqiutoken.net')
+}
+
+export function mapQuality(params, route) {
+  if (!isQiuqiuImageRoute(route)) return ''
+  const raw = String(params?.quality || '').trim().toUpperCase()
+  if (raw === '4K' || raw === 'HIGH') return 'high'
+  if (raw === '2K' || raw === 'MEDIUM') return 'medium'
+  if (raw === '1K' || raw === 'LOW') return 'low'
+  return 'high'
+}
+
 function toDataUrl(file) {
   const mime = file.mime || sniffImageMime(file.bytes) || 'image/png'
   return `data:${mime};base64,${file.bytes.toString('base64')}`
@@ -126,7 +169,28 @@ export function extForMime(mime) {
 export function outputCount(params) {
   const n = Number(params?.outputCount ?? params?.count)
   const fallback = Number.isFinite(n) && n > 0 ? n : 4
-  return Math.max(1, Math.min(8, fallback))
+  return Math.max(1, Math.min(12, fallback))
+}
+
+export function jobSlots(job) {
+  const slots = job?.params?.slots
+  if (!Array.isArray(slots) || !slots.length) return null
+  return slots.slice(0, outputCount(job.params)).map((slot) => ({
+    label: String(slot?.label || slot?.key || '套图').trim() || '套图',
+    brief: String(slot?.brief || '').trim()
+  }))
+}
+
+export function promptForJob(job, slot) {
+  if (!slot) return buildPrompt(job)
+  return buildPrompt({
+    ...job,
+    params: {
+      ...(job.params || {}),
+      slot: slot.label,
+      slot_brief: slot.brief
+    }
+  })
 }
 
 export function mapSize(params) {
@@ -180,7 +244,7 @@ function roleLabel(schema, role) {
   return hit?.label || role || 'reference'
 }
 
-export function buildPrompt(job) {
+export function buildPrompt(job, { forCopy = false } = {}) {
   const params = job.params || {}
   const schema = getScene(job.scene)
   const parts = []
@@ -191,9 +255,11 @@ export function buildPrompt(job) {
     const name = String(ref?.name || '').trim()
     parts.push(`Reference ${index + 1} (${roleLabel(schema, ref?.role)})${name ? `: ${name}` : ''}`)
   })
+  const omitCopy = !forCopy && params.no_text === true
   const declaredKeys = new Set()
   ;(schema?.fields || []).forEach((field) => {
     declaredKeys.add(field.key)
+    if (omitCopy && IMAGE_TEXT_KEYS.has(field.key)) return
     const value = params[field.key]
     if (isEmptyValue(value)) return
     if (field.type === 'checkbox') {
@@ -205,16 +271,84 @@ export function buildPrompt(job) {
     parts.push(`${field.label}: ${readable}`)
   })
   TEXT_KEYS.forEach((key) => {
-    if (declaredKeys.has(key)) return
+    if (declaredKeys.has(key) || omitCopy) return
     const value = String(params[key] || '').trim()
     if (value && !parts.includes(value)) parts.push(value)
   })
-  if (params.no_text === true) {
-    parts.push('No on-image text except original product branding already visible in the reference.')
+  if (params.analyze === true) {
+    parts.push('Analyze the product photos and write a sell-point brief. Template: [产品名称]、[核心卖点]、[适用人群]、[规格参数]、[套图建议]. Missing price, certification, or specs must be 待补. Do not invent facts.')
   }
-  parts.push(TEXT_POLICY)
+  if (omitCopy) {
+    parts.push('No on-image text except original product branding already visible in the reference. Do not render product briefs, 待补 placeholders, prices, slogans, or captions.')
+  }
+  parts.push(forCopy ? COPY_POLICY : TEXT_POLICY)
   const text = parts.filter(Boolean).join('\n').trim()
-  return (text || 'product photo').slice(0, 4000)
+  const limit = forCopy ? 8000 : 4000
+  return (text || (forCopy ? 'Write product copy from the supplied facts.' : 'product photo')).slice(0, limit)
+}
+
+export function getChatRoute() {
+  const key = String(process.env.AMAM_VENDOR_CHAT_API_KEY || '').trim()
+  const baseUrl = String(process.env.AMAM_VENDOR_CHAT_BASE_URL || '').trim()
+  const model = String(process.env.AMAM_VENDOR_CHAT_MODEL || '').trim() || 'sensenova-6.8-flash-lite'
+  if (key && baseUrl) return { key, baseUrl, model }
+  for (const id of Object.keys(ROUTES)) {
+    const route = getVendorRoute(id)
+    if (route?.key && route?.baseUrl) {
+      return { key: key || route.key, baseUrl: baseUrl || route.baseUrl, model }
+    }
+  }
+  return { key, baseUrl: baseUrl || 'https://token.sensenova.cn/v1', model }
+}
+
+function chatUrl(baseUrl) {
+  const base = String(baseUrl || '').replace(/\/+$/, '')
+  if (base.endsWith('/v1')) return `${base}/chat/completions`
+  return `${base}/v1/chat/completions`
+}
+
+export function extractChatText(payload) {
+  const choice = payload?.choices?.[0] || payload?.data?.choices?.[0]
+  const content = choice?.message?.content ?? choice?.message ?? choice?.text ?? payload?.data?.message ?? ''
+  if (Array.isArray(content)) {
+    return content.map((part) => (typeof part === 'string' ? part : part?.text || '')).join('').trim()
+  }
+  if (content && typeof content === 'object') return String(content.content || content.text || '').trim()
+  return String(content || '').trim()
+}
+
+export function chatUserContent(job, prompt) {
+  const files = loadRefImages(job.refs).slice(0, 4)
+  if (!files.length) return prompt
+  return [
+    { type: 'text', text: prompt },
+    ...files.map((file) => ({
+      type: 'image_url',
+      image_url: { url: toDataUrl(file) }
+    }))
+  ]
+}
+
+export async function generateTextForJob(job) {
+  const route = getChatRoute()
+  if (!route.key || !route.baseUrl) throw vendorError('vendor_unconfigured')
+  const prompt = buildPrompt(job, { forCopy: true })
+  const timeout = vendorTimeoutMs()
+  const headers = { Authorization: `Bearer ${route.key}` }
+  const res = await postVendorJson(chatUrl(route.baseUrl), headers, {
+    model: route.model,
+    messages: [
+      { role: 'system', content: COPY_POLICY },
+      { role: 'user', content: chatUserContent(job, prompt) }
+    ],
+    temperature: 0.6
+  }, timeout)
+  if (res.status < 200 || res.status >= 300) throw vendorError('vendor_error')
+  const payload = parseJson(res.body)
+  if (!payload) throw vendorError('vendor_error')
+  const text = extractChatText(payload)
+  if (!text) throw vendorError('vendor_empty')
+  return text
 }
 
 function readStaticRef(url) {
@@ -369,71 +503,85 @@ async function decodeVendorResponse(res, timeout) {
   return images
 }
 
-export async function generateForJob(job) {
-  if (isUnsupportedModel(job.model)) throw vendorError('unsupported_model')
-  const route = getVendorRoute(job.model)
-  if (!route || !route.key || !route.baseUrl) throw vendorError('vendor_unconfigured')
-  const prompt = buildPrompt(job)
-  const n = outputCount(job.params)
-  const size = mapSize(job.params)
-  const refs = loadRefImages(job.refs)
-  const timeout = vendorTimeoutMs()
-  const headers = { Authorization: `Bearer ${route.key}` }
+async function generateOnce(route, { prompt, size, refs, timeout, headers, n = 1, quality }) {
   const senseNova = isSenseNovaRoute(route)
+  const qiuqiu = isQiuqiuImageRoute(route)
+  const gptFields = qiuqiu
+    ? { quality: quality || 'high', output_format: 'png' }
+    : {}
   if (refs.length) {
     if (senseNova) {
-      const images = []
-      const rounds = Math.max(1, n)
-      for (let i = 0; i < rounds; i += 1) {
-        const res = await postVendorJson(imagesUrl(route.baseUrl, 'edits'), headers, {
-          model: route.model,
-          prompt,
-          n: 1,
-          size,
-          watermark: false,
-          prompt_extend: false,
-          response_format: 'b64_json',
-          images: refs.map((file) => ({ image_url: toDataUrl(file) }))
-        }, timeout)
-        images.push(...await decodeVendorResponse(res, timeout))
-      }
-      return images
-    }
-    const packed = multipartBody({
-      model: route.model,
-      prompt,
-      n: String(n),
-      size,
-      response_format: 'b64_json'
-    }, refs)
-    headers['Content-Type'] = packed.contentType
-    headers['Content-Length'] = packed.body.length
-    const res = await requestRaw(imagesUrl(route.baseUrl, 'edits'), { headers, body: packed.body, timeout })
-    return decodeVendorResponse(res, timeout)
-  }
-  if (senseNova) {
-    const images = []
-    const rounds = Math.max(1, n)
-    for (let i = 0; i < rounds; i += 1) {
-      const res = await postVendorJson(imagesUrl(route.baseUrl, 'generations'), headers, {
+      const res = await postVendorJson(imagesUrl(route.baseUrl, 'edits'), headers, {
         model: route.model,
         prompt,
         n: 1,
         size,
         watermark: false,
         prompt_extend: false,
-        response_format: 'b64_json'
+        response_format: 'b64_json',
+        images: refs.map((file) => ({ image_url: toDataUrl(file) }))
       }, timeout)
-      images.push(...await decodeVendorResponse(res, timeout))
+      return decodeVendorResponse(res, timeout)
     }
-    return images
+    const packed = multipartBody({
+      model: route.model,
+      prompt,
+      n: String(n),
+      size,
+      response_format: 'b64_json',
+      ...gptFields
+    }, refs)
+    const nextHeaders = {
+      ...headers,
+      'Content-Type': packed.contentType,
+      'Content-Length': packed.body.length
+    }
+    const res = await requestRaw(imagesUrl(route.baseUrl, 'edits'), { headers: nextHeaders, body: packed.body, timeout })
+    return decodeVendorResponse(res, timeout)
+  }
+  if (senseNova) {
+    const res = await postVendorJson(imagesUrl(route.baseUrl, 'generations'), headers, {
+      model: route.model,
+      prompt,
+      n: 1,
+      size,
+      watermark: false,
+      prompt_extend: false,
+      response_format: 'b64_json'
+    }, timeout)
+    return decodeVendorResponse(res, timeout)
   }
   const res = await postVendorJson(imagesUrl(route.baseUrl, 'generations'), headers, {
     model: route.model,
     prompt,
     n,
     size,
-    response_format: 'b64_json'
+    response_format: 'b64_json',
+    ...gptFields
   }, timeout)
   return decodeVendorResponse(res, timeout)
+}
+
+export async function generateForJob(job) {
+  if (isUnsupportedModel(job.model)) throw vendorError('unsupported_model')
+  const route = getVendorRoute(job.model)
+  if (!route || !route.key || !route.baseUrl) throw vendorError('vendor_unconfigured')
+  const n = outputCount(job.params)
+  const size = mapSize(job.params)
+  const quality = mapQuality(job.params, route)
+  const refs = loadRefImages(job.refs)
+  const timeout = vendorTimeoutMs()
+  const headers = { Authorization: `Bearer ${route.key}` }
+  const slots = jobSlots(job)
+  const senseNova = isSenseNovaRoute(route)
+  const roundCount = slots ? slots.length : (senseNova ? Math.max(1, n) : 1)
+  if (roundCount === 1 && !slots) {
+    return generateOnce(route, { prompt: buildPrompt(job), size, refs, timeout, headers, n, quality })
+  }
+  const images = []
+  for (let i = 0; i < roundCount; i += 1) {
+    const prompt = promptForJob(job, slots?.[i])
+    images.push(...await generateOnce(route, { prompt, size, refs, timeout, headers, n: 1, quality }))
+  }
+  return images
 }

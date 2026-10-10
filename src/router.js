@@ -14,6 +14,7 @@ import AboutView from './views/AboutView.vue'
 import SimplePage from './views/SimplePage.vue'
 import BusinessCatalogView from './views/BusinessCatalogView.vue'
 import BusinessScenePlanView from './views/BusinessScenePlanView.vue'
+import CopyWorkbenchView from './views/CopyWorkbenchView.vue'
 import InfiniteCanvasView from './views/InfiniteCanvasView.vue'
 import {
   productCatalog, podCatalog, deriveCatalog, moreCategories, localTools
@@ -105,6 +106,9 @@ const router = createRouter({
           }
         },
         { path: 'cross-border', component: BusinessCatalogView, meta: { businessCategory: 'cross-border' } },
+        { path: 'cross-border/listing-generate', component: CopyWorkbenchView, props: { kind: 'cross', scene: 'listing-generate' } },
+        { path: 'cross-border/listing-localize', component: CopyWorkbenchView, props: { kind: 'cross', scene: 'listing-localize' } },
+        { path: 'cross-border/listing-compliance', component: CopyWorkbenchView, props: { kind: 'cross', scene: 'listing-compliance' } },
         {
           path: 'cross-border/:scene',
           component: BusinessScenePlanView,
@@ -119,6 +123,8 @@ const router = createRouter({
         { path: 'learn', component: BusinessCatalogView, meta: { businessCategory: 'learn' } },
         { path: 'learn/:scene', component: BusinessScenePlanView, meta: { businessCategory: 'learn' } },
         { path: 'ecommerce-assets', component: BusinessCatalogView, meta: { businessCategory: 'material' } },
+        { path: 'ecommerce-assets/ai-copywriting', component: CopyWorkbenchView, props: { kind: 'material', scene: 'ai-copywriting' } },
+        { path: 'ecommerce-assets/title-generator', component: CopyWorkbenchView, props: { kind: 'material', scene: 'title-generator' } },
         {
           path: 'ecommerce-assets/:scene',
           component: BusinessScenePlanView,

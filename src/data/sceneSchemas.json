@@ -36,9 +36,173 @@
         "type": "textarea",
         "default": "",
         "max": 12000
+      },
+      {
+        "key": "platform",
+        "label": "目标平台",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "language",
+        "label": "文案语言",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "brand_name",
+        "label": "品牌名称",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "brand_colors",
+        "label": "品牌主色",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "font_style",
+        "label": "字体风格",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "sales_region",
+        "label": "销售地区",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "quality",
+        "label": "画质",
+        "type": "text",
+        "default": "1K"
+      },
+      {
+        "key": "aspect_ratio",
+        "label": "生成比例",
+        "type": "text",
+        "default": "1:1"
+      },
+      {
+        "key": "market_mode",
+        "label": "市场",
+        "type": "select",
+        "default": "china",
+        "options": [
+          { "value": "china", "label": "中文电商" },
+          { "value": "cross_border", "label": "跨境电商" }
+        ]
+      },
+      {
+        "key": "suite_type",
+        "label": "套图类型",
+        "type": "select",
+        "default": "multi_dimension",
+        "options": [
+          { "value": "multi_dimension", "label": "多维套图" },
+          { "value": "main_variant", "label": "主图变体测试" }
+        ]
+      },
+      {
+        "key": "image_direction",
+        "label": "画面取向",
+        "type": "select",
+        "default": "balanced",
+        "options": [
+          { "value": "promo", "label": "宣传大片" },
+          { "value": "balanced", "label": "平衡" },
+          { "value": "real", "label": "真实试穿" }
+        ]
+      },
+      {
+        "key": "default_audience",
+        "label": "默认受众",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "theme_color",
+        "label": "主题色",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "font_style_mode",
+        "label": "字体风格模式",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "extra_description",
+        "label": "额外描述",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      },
+      {
+        "key": "slot",
+        "label": "当前版位",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "slot_brief",
+        "label": "版位说明",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "no_text",
+        "label": "无文字模式",
+        "type": "checkbox",
+        "default": true
+      },
+      {
+        "key": "text_required",
+        "label": "强文案模式",
+        "type": "checkbox",
+        "default": false
+      },
+      {
+        "key": "trending_style",
+        "label": "爆款风格推荐",
+        "type": "checkbox",
+        "default": false
+      },
+      {
+        "key": "text_amount_mode",
+        "label": "配图文字字数",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "layout_mode_value",
+        "label": "配图版式",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "page_structure_value",
+        "label": "版面结构",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "template_style_value",
+        "label": "模板风格",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "product_depth_value",
+        "label": "商品立体感",
+        "type": "text",
+        "default": ""
       }
     ],
-    "instruction": "商品套图使用现有完整套图工作台和原有服务流程。保留商品分析、主图、参考图、平台、语言、品牌、文字、尺寸与逐张重试能力；统一目录仅提供导航元信息，不迁移或覆盖现有套图参数。"
+    "instruction": "根据主图锁定商品外形，按指定电商版位输出风格统一的套图。保留商品结构、材质与已有品牌标识；遵守平台、语言、品牌和版位要求。未提供精确文案时不要发明画面文字、价格或口号。"
   },
   {
     "slug": "suite-legacy",
@@ -11120,5 +11284,408 @@
     "maxOutputs": 4,
     "defaultRatio": "1:1",
     "outputMode": "variants"
+  },
+  {
+    "slug": "ai-copywriting",
+    "title": "AI 文案",
+    "group": "文案与标题",
+    "description": "根据商品资料生成各渠道电商文案。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "商品图",
+        "min": 0,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "根据商品资料撰写可直接使用的电商文案。只使用用户给出的事实；缺失价格、认证、材质或规格时写待补，不要编造。按目标渠道和语气输出卖点、详情与简短行动号召。",
+    "fields": [
+      {
+        "key": "product_info",
+        "label": "商品资料",
+        "type": "textarea",
+        "default": "",
+        "max": 8000,
+        "placeholder": "品名、卖点、规格、材质、适用人群"
+      },
+      {
+        "key": "channel",
+        "label": "目标渠道",
+        "type": "select",
+        "default": "general",
+        "options": [
+          {
+            "value": "general",
+            "label": "通用电商"
+          },
+          {
+            "value": "tmall",
+            "label": "天猫 / 淘宝"
+          },
+          {
+            "value": "jd",
+            "label": "京东"
+          },
+          {
+            "value": "douyin",
+            "label": "抖音电商"
+          },
+          {
+            "value": "xiaohongshu",
+            "label": "小红书"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "品牌语气",
+        "type": "select",
+        "default": "conversion",
+        "options": [
+          {
+            "value": "conversion",
+            "label": "转化导向"
+          },
+          {
+            "value": "professional",
+            "label": "专业克制"
+          },
+          {
+            "value": "lively",
+            "label": "活泼种草"
+          },
+          {
+            "value": "luxury",
+            "label": "品质感"
+          }
+        ]
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      }
+    ]
+  },
+  {
+    "slug": "title-generator",
+    "title": "商品标题生成器",
+    "group": "文案与标题",
+    "description": "根据商品信息生成多条高转化标题。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "商品图",
+        "min": 0,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "根据商品资料生成 8 到 12 条标题候选。只使用用户给出的品名、属性与关键词；不要编造认证、产地或数字。按目标平台习惯组织词序，并在末尾给出禁用词检查提示。",
+    "fields": [
+      {
+        "key": "product_info",
+        "label": "商品信息",
+        "type": "textarea",
+        "default": "",
+        "max": 4000,
+        "placeholder": "品名、核心属性、卖点"
+      },
+      {
+        "key": "platform",
+        "label": "目标平台",
+        "type": "select",
+        "default": "taobao",
+        "options": [
+          {
+            "value": "taobao",
+            "label": "淘宝 / 天猫"
+          },
+          {
+            "value": "jd",
+            "label": "京东"
+          },
+          {
+            "value": "pdd",
+            "label": "拼多多"
+          },
+          {
+            "value": "douyin",
+            "label": "抖音"
+          },
+          {
+            "value": "amazon",
+            "label": "Amazon"
+          }
+        ]
+      },
+      {
+        "key": "keywords",
+        "label": "关键词",
+        "type": "text",
+        "default": "",
+        "max": 500,
+        "placeholder": "用空格或逗号分隔"
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      }
+    ]
+  },
+  {
+    "slug": "listing-generate",
+    "title": "跨境 Listing 生成",
+    "group": "Listing 内容",
+    "description": "根据商品资料生成标题、五点描述、长描述和搜索词。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "商品图",
+        "min": 0,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "按目标平台输出结构化 Listing：标题、五点描述、长描述、搜索词。只使用用户资料中的事实；缺失项标注待补。不要编造认证、专利、价格或库存。",
+    "fields": [
+      {
+        "key": "product_info",
+        "label": "商品资料",
+        "type": "textarea",
+        "default": "",
+        "max": 8000,
+        "placeholder": "品名、规格、卖点、品牌、包装"
+      },
+      {
+        "key": "platform",
+        "label": "目标平台",
+        "type": "select",
+        "default": "amazon",
+        "options": [
+          {
+            "value": "amazon",
+            "label": "Amazon"
+          },
+          {
+            "value": "shopify",
+            "label": "Shopify"
+          },
+          {
+            "value": "tiktok",
+            "label": "TikTok Shop"
+          },
+          {
+            "value": "temu",
+            "label": "Temu"
+          },
+          {
+            "value": "independent",
+            "label": "独立站"
+          }
+        ]
+      },
+      {
+        "key": "marketplace",
+        "label": "销售站点",
+        "type": "select",
+        "default": "US",
+        "options": [
+          {
+            "value": "US",
+            "label": "美国"
+          },
+          {
+            "value": "UK",
+            "label": "英国"
+          },
+          {
+            "value": "DE",
+            "label": "德国"
+          },
+          {
+            "value": "JP",
+            "label": "日本"
+          },
+          {
+            "value": "general",
+            "label": "通用"
+          }
+        ]
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      }
+    ]
+  },
+  {
+    "slug": "listing-localize",
+    "title": "Listing 本地化",
+    "group": "Listing 内容",
+    "description": "按目标国家的语言与搜索习惯重写 Listing。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "商品图",
+        "min": 0,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "把原始 Listing 本地化到目标语言和国家。保留可核对的原文要点，改写语气与单位，不要新增原文没有的卖点、价格或认证。输出对照：原文要点 / 本地化文本。",
+    "fields": [
+      {
+        "key": "source_listing",
+        "label": "原始 Listing",
+        "type": "textarea",
+        "default": "",
+        "max": 8000,
+        "placeholder": "粘贴标题、卖点或长描述"
+      },
+      {
+        "key": "target_language",
+        "label": "目标语言",
+        "type": "select",
+        "default": "en",
+        "options": [
+          {
+            "value": "en",
+            "label": "英语"
+          },
+          {
+            "value": "de",
+            "label": "德语"
+          },
+          {
+            "value": "fr",
+            "label": "法语"
+          },
+          {
+            "value": "ja",
+            "label": "日语"
+          },
+          {
+            "value": "es",
+            "label": "西班牙语"
+          }
+        ]
+      },
+      {
+        "key": "target_country",
+        "label": "目标国家",
+        "type": "select",
+        "default": "US",
+        "options": [
+          {
+            "value": "US",
+            "label": "美国"
+          },
+          {
+            "value": "UK",
+            "label": "英国"
+          },
+          {
+            "value": "DE",
+            "label": "德国"
+          },
+          {
+            "value": "FR",
+            "label": "法国"
+          },
+          {
+            "value": "JP",
+            "label": "日本"
+          }
+        ]
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      }
+    ]
+  },
+  {
+    "slug": "listing-compliance",
+    "title": "Listing 合规检测",
+    "group": "Listing 内容",
+    "description": "检查平台规则、敏感词和商品信息完整性。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "商品图",
+        "min": 0,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "审查 Listing 文案的平台合规风险。输出风险等级、问题位置、敏感或夸大表述、缺失信息，以及逐项修改建议。不要把推测写成已确认违规；证据不足时标明待核。",
+    "fields": [
+      {
+        "key": "listing_text",
+        "label": "Listing 文案",
+        "type": "textarea",
+        "default": "",
+        "max": 8000,
+        "placeholder": "粘贴标题、五点、描述或上架说明"
+      },
+      {
+        "key": "platform",
+        "label": "目标平台",
+        "type": "select",
+        "default": "amazon",
+        "options": [
+          {
+            "value": "amazon",
+            "label": "Amazon"
+          },
+          {
+            "value": "shopify",
+            "label": "Shopify"
+          },
+          {
+            "value": "tiktok",
+            "label": "TikTok Shop"
+          },
+          {
+            "value": "temu",
+            "label": "Temu"
+          },
+          {
+            "value": "tmall",
+            "label": "天猫国际"
+          }
+        ]
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 2000
+      }
+    ]
   }
 ]

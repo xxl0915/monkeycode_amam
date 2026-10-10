@@ -4,7 +4,7 @@ Feature: server-model-proxy
 
 ## Tasks
 
-- [x] Align `server/catalog.js` `models` with frontend `onlineModels` ids (`nano-banana`, `nano-pro`, `seedream`, `gpt-image`, `kling`, `seedance`)
+- [x] Align `server/catalog.js` `models` with frontend `onlineModels` ids (`nano-banana`, `nano-pro`, `seedream`, `gpt-image`, `gpt-image-25-sunburst`, `gpt-image-25-flare`, `gpt-image-25`, `kling`, `seedance`)
 - [x] Add `server/vendor.js`: per-model env credentials, prompt builder, size mapping, Node built-in HTTP to `/v1/images/generations` and `/v1/images/edits`
 - [x] Update `server/worker.js`: `fake` keeps sample pool; `live` calls vendor, persists outputs as `role=output` assets, maps vendor errors and refunds
 - [x] Add `.env.example` with `AMAM_VENDOR_*` placeholders only

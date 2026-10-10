@@ -50,7 +50,7 @@ amam 生成任务管线与参考素材持久化已上线：登录、积分冻结
 
 #### Acceptance Criteria
 
-1. WHEN `GET /api/v1/models` 被调用, THE API SHALL 返回与前端 `onlineModels` 对齐的列表，图像项的 `id` 为 `nano-banana`、`nano-pro`、`seedream`、`gpt-image`，每项含 `id`、`name`、`video`。
+1. WHEN `GET /api/v1/models` 被调用, THE API SHALL 返回与前端 `onlineModels` 对齐的列表，图像项的 `id` 为 `nano-banana`、`nano-pro`、`seedream`、`gpt-image`、`gpt-image-25-sunburst`、`gpt-image-25-flare`、`gpt-image-25`，每项含 `id`、`name`、`video`。
 2. WHEN 任务的 `model` 为已知图像模型 id, THE API SHALL 按模型路由使用该 id 对应的专属凭证与上游模型名发起调用。
 3. WHEN 任务 `refs` 为空, THE API SHALL 以文生图方式调用上游，提示词来自任务 `params` 中的场景说明与用户输入文本。
 4. WHEN 任务 `refs` 含本人资产或静态样图, THE API SHALL 读取这些图片字节并作为参考图随请求发给上游。

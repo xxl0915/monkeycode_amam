@@ -43,7 +43,10 @@ npm install
 | `AMAM_VENDOR_TIMEOUT_MS` | 否 | 上游等待时限，缺省 120000 | `120000` |
 | `AMAM_VENDOR_<MODEL>_API_KEY` | live 下该模型需要 | 该图像模型的上游 Key | `your-api-key-here` |
 | `AMAM_VENDOR_<MODEL>_BASE_URL` | live 下该模型需要 | 该图像模型的上游 Base URL | `https://api.example.com/v1` |
-| `AMAM_VENDOR_<MODEL>_MODEL` | 否 | 上游模型名；SenseNova 槽位缺省 `sensenova-u1.5-fast` / `sensenova-u1.5-lite` | `sensenova-u1.5-fast` |
+| `AMAM_VENDOR_<MODEL>_MODEL` | 否 | 上游模型名；SenseNova 槽位缺省 `sensenova-u1.5-fast` / `sensenova-u1.5-lite`；球球 Token 三档缺省 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare` / `gpt-image-2.5` | `sensenova-u1.5-fast` |
+| `AMAM_VENDOR_CHAT_API_KEY` | 文案 live 需要 | 对话代调 Key；缺省回退到已配置图像槽 Key | `your-api-key-here` |
+| `AMAM_VENDOR_CHAT_BASE_URL` | 否 | 对话 Base URL，缺省 `https://token.sensenova.cn/v1` | `https://token.sensenova.cn/v1` |
+| `AMAM_VENDOR_CHAT_MODEL` | 否 | 对话模型，缺省 `sensenova-6.8-flash-lite` | `sensenova-6.8-flash-lite` |
 
 API 默认监听 `0.0.0.0:8787`。`vite.config.js` 中开发代理固定指向 `http://127.0.0.1:8787`，修改端口时需同步调整代理目标。
 

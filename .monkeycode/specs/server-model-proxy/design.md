@@ -39,6 +39,9 @@ flowchart LR
 | `nano-pro` | Nano Banana Pro | false |
 | `seedream` | Seedream 4.5 | false |
 | `gpt-image` | GPT Image 1.5 | false |
+| `gpt-image-25-sunburst` | GPT Image 2.5 Sunburst | false |
+| `gpt-image-25-flare` | GPT Image 2.5 Flare | false |
+| `gpt-image-25` | GPT Image 2.5 | false |
 | `kling` | Kling 2.1 | true |
 | `seedance` | Seedance 1.5 Pro | true |
 
@@ -56,6 +59,9 @@ flowchart LR
 | `nano-pro` | `AMAM_VENDOR_NANO_PRO_API_KEY` | `AMAM_VENDOR_NANO_PRO_BASE_URL` | `AMAM_VENDOR_NANO_PRO_MODEL`（缺省 `sensenova-u1.5-lite`） |
 | `seedream` | `AMAM_VENDOR_SEEDREAM_API_KEY` | `AMAM_VENDOR_SEEDREAM_BASE_URL` | `AMAM_VENDOR_SEEDREAM_MODEL`（缺省 `sensenova-u1.5-fast`） |
 | `gpt-image` | `AMAM_VENDOR_GPT_IMAGE_API_KEY` | `AMAM_VENDOR_GPT_IMAGE_BASE_URL` | `AMAM_VENDOR_GPT_IMAGE_MODEL`（缺省 `sensenova-u1.5-lite`） |
+| `gpt-image-25-sunburst` | `AMAM_VENDOR_GPT_IMAGE_25_API_KEY` | `AMAM_VENDOR_GPT_IMAGE_25_BASE_URL` | `AMAM_VENDOR_GPT_IMAGE_25_SUNBURST_MODEL`（缺省 `gpt-image-2.5-sunburst`） |
+| `gpt-image-25-flare` | `AMAM_VENDOR_GPT_IMAGE_25_API_KEY` | `AMAM_VENDOR_GPT_IMAGE_25_BASE_URL` | `AMAM_VENDOR_GPT_IMAGE_25_FLARE_MODEL`（缺省 `gpt-image-2.5-flare`） |
+| `gpt-image-25` | `AMAM_VENDOR_GPT_IMAGE_25_API_KEY` | `AMAM_VENDOR_GPT_IMAGE_25_BASE_URL` | `AMAM_VENDOR_GPT_IMAGE_25_MODEL`（缺省 `gpt-image-2.5`） |
 
 公共开关：
 

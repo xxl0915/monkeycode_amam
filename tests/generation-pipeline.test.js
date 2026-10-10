@@ -19,7 +19,7 @@ writeFileSync(process.env.AMAM_DB_FILE, JSON.stringify({
 
 const db = await import('../server/db.js')
 const { createApiServer } = await import('../server/index.js')
-const { buildPrompt } = await import('../server/vendor.js')
+const { buildPrompt, mapQuality } = await import('../server/vendor.js')
 
 function user(id, credits) {
   const record = { id, name: id, account: `${id}@amam.ai`, credits, invite: 'AMAM8K', createdAt: Date.now() }
@@ -374,7 +374,7 @@ test('GET /models matches frontend image and video ids', async (t) => {
   const listed = await json(`${base}/models`)
   assert.equal(listed.status, 200)
   assert.deepEqual(listed.body.models.map((item) => item.id), [
-    'nano-banana', 'nano-pro', 'seedream', 'gpt-image', 'kling', 'seedance'
+    'nano-banana', 'nano-pro', 'seedream', 'gpt-image', 'gpt-image-25-sunburst', 'gpt-image-25-flare', 'gpt-image-25', 'kling', 'seedance'
   ])
 })
 
@@ -600,6 +600,57 @@ test('live vendor maps unconfigured, unsupported, timeout and empty errors', asy
   })
 })
 
+test('gpt-image-2.5 live generations send quality and output_format', async (t) => {
+  const seen = { body: null, auth: '' }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/images/generations') {
+      seen.auth = String(req.headers.authorization || '')
+      seen.body = JSON.parse(raw.toString('utf8') || '{}')
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_GPT_IMAGE_25_API_KEY: 'test-gpt-image-25-key',
+    AMAM_VENDOR_GPT_IMAGE_25_BASE_URL: mock.origin,
+    AMAM_VENDOR_GPT_IMAGE_25_SUNBURST_MODEL: 'gpt-image-2.5-sunburst'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'gpt-image-25@amam.ai')
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'suite',
+        model: 'gpt-image-25-sunburst',
+        params: { outputCount: 1, prompt: 'studio hoodie', quality: '2K' }
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.equal(finished.outputs.length, 1)
+    assert.equal(seen.body.model, 'gpt-image-2.5-sunburst')
+    assert.equal(seen.body.quality, 'medium')
+    assert.equal(seen.body.output_format, 'png')
+    assert.equal(seen.auth, 'Bearer test-gpt-image-25-key')
+    assert.equal(JSON.stringify(finished).includes('test-gpt-image-25-key'), false)
+  })
+})
+
+test('mapQuality maps 1K/2K/4K for qiuqiu gpt-image-2.5 only', () => {
+  const route = { model: 'gpt-image-2.5-sunburst', baseUrl: 'https://qiuqiutoken.net/v1' }
+  assert.equal(mapQuality({ quality: '1K' }, route), 'low')
+  assert.equal(mapQuality({ quality: '2K' }, route), 'medium')
+  assert.equal(mapQuality({ quality: '4K' }, route), 'high')
+  assert.equal(mapQuality({ quality: '1K' }, { model: 'sensenova-u1.5-fast', baseUrl: 'https://token.sensenova.cn/v1' }), '')
+})
+
 test('buildPrompt includes instruction, role labels and omits empty fields', () => {
   const prompt = buildPrompt({
     scene: 'change-bg',
@@ -620,7 +671,7 @@ test('P0 scene slugs can create jobs', async (t) => {
   const { token } = await loginAs(base, 'p0-scenes@amam.ai')
   const scenes = await json(`${base}/scenes`)
   assert.equal(scenes.status, 200)
-  assert.equal(scenes.body.scenes.length >= 88, true)
+  assert.equal(scenes.body.scenes.length >= 93, true)
   for (const scene of ['style-fusion', 'pattern-extract', 'watermark-pro', 'white-bg', 'ai-edit']) {
     const created = await json(`${base}/jobs`, {
       method: 'POST',
@@ -721,14 +772,14 @@ test('graphic-design catalog maps every scene to an implemented workbench', asyn
   }
 })
 
-test('ecommerce-assets catalog maps compose scenes and keeps copy planned', async () => {
+test('ecommerce-assets catalog maps compose scenes and implements copy workbenches', async () => {
   const { readFileSync } = await import('node:fs')
   const { dirname, join } = await import('node:path')
   const { fileURLToPath } = await import('node:url')
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const cats = JSON.parse(readFileSync(join(root, 'src/data/business.json'), 'utf8'))
   const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
-  const slugs = new Set(schemas.map((scene) => scene.slug))
+  const bySlug = Object.fromEntries(schemas.map((scene) => [scene.slug, scene]))
   const expected = {
     'param-board': '/product-images/detail-sheet',
     'feature-stack': '/product-images/selling-point',
@@ -745,16 +796,17 @@ test('ecommerce-assets catalog maps compose scenes and keeps copy planned', asyn
   const material = cats.find((item) => item.key === 'material')
   const scenes = Object.fromEntries(material.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
   assert.equal(Object.keys(scenes).length, 13)
-  assert.equal(scenes['ai-copywriting'].capability, 'planned')
-  assert.equal(scenes['title-generator'].capability, 'planned')
-  assert.equal(scenes['ai-copywriting'].targetRoute, undefined)
-  assert.equal(scenes['title-generator'].targetRoute, undefined)
+  for (const slug of ['ai-copywriting', 'title-generator']) {
+    assert.equal(scenes[slug].capability, 'implemented', slug)
+    assert.equal(scenes[slug].targetRoute, undefined, slug)
+    assert.equal(bySlug[slug].outputMode, 'text', slug)
+  }
   for (const [slug, targetRoute] of Object.entries(expected)) {
     const scene = scenes[slug]
     assert.equal(scene.capability, 'implemented', slug)
     assert.equal(scene.targetRoute, targetRoute, slug)
     const workbench = targetRoute.split('/').pop()
-    assert.equal(slugs.has(workbench), true, workbench)
+    assert.equal(Boolean(bySlug[workbench]), true, workbench)
   }
 })
 
@@ -797,33 +849,283 @@ test('toolbox remaining image scenes map to existing workbenches', async () => {
   assert.equal(scenes['id-photo'].targetRoute || '/tools/ai/id-photo', '/tools/ai/id-photo')
 })
 
-test('cross-border image-set scenes map and listing text stays planned', async () => {
+test('cross-border image-set scenes map and listing copy is implemented', async () => {
   const { readFileSync } = await import('node:fs')
   const { dirname, join } = await import('node:path')
   const { fileURLToPath } = await import('node:url')
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const cats = JSON.parse(readFileSync(join(root, 'src/data/business.json'), 'utf8'))
   const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
-  const slugs = new Set(schemas.map((scene) => scene.slug))
+  const bySlug = Object.fromEntries(schemas.map((scene) => [scene.slug, scene]))
   const expected = {
     'platform-image-set': '/product-images/suite',
     'language-size-matrix': '/product-images/clothing-ztc',
     'aplus-brand-story': '/product-images/detail-page',
     'sku-listing-pack': '/product-images/sku-image'
   }
-  const deferred = ['listing-generate', 'listing-localize', 'listing-compliance']
+  const copy = ['listing-generate', 'listing-localize', 'listing-compliance']
   const catalog = cats.find((item) => item.key === 'cross-border')
   const scenes = Object.fromEntries(catalog.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
   assert.equal(Object.keys(scenes).length, 7)
-  for (const slug of deferred) {
-    assert.equal(scenes[slug].capability, 'planned', slug)
+  for (const slug of copy) {
+    assert.equal(scenes[slug].capability, 'implemented', slug)
     assert.equal(scenes[slug].targetRoute, undefined, slug)
+    assert.equal(bySlug[slug].outputMode, 'text', slug)
   }
   for (const [slug, targetRoute] of Object.entries(expected)) {
     const scene = scenes[slug]
     assert.equal(scene.capability, 'implemented', slug)
     assert.equal(scene.targetRoute, targetRoute, slug)
     const workbench = targetRoute.split('/').pop()
-    assert.equal(slugs.has(workbench), true, workbench)
+    assert.equal(Boolean(bySlug[workbench]), true, workbench)
   }
+})
+
+test('copy jobs return text in fake mode', async (t) => {
+  const { server, base } = await listen()
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const { token, user } = await loginAs(base, 'copy-fake@amam.ai')
+  const created = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      scene: 'ai-copywriting',
+      model: 'nano-banana',
+      params: { product_info: '棉质短袖 透气 待补价格', channel: 'xiaohongshu' }
+    })
+  })
+  assert.equal(created.status, 201)
+  const finished = await pollJob(base, token, created.body.job.id)
+  assert.equal(finished.status, 'succeeded')
+  assert.equal(Boolean(finished.outputs[0]?.text), true)
+  assert.equal(finished.outputs[0]?.url, undefined)
+  const me = await json(`${base}/me`, { headers: { Authorization: `Bearer ${token}` } })
+  assert.equal(me.body.user.credits, user.credits - 4)
+})
+
+test('live copy jobs call chat completions and image jobs do not', async (t) => {
+  const seen = { chat: 0, generations: 0, model: '', prompt: '' }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/chat/completions') {
+      seen.chat += 1
+      const body = JSON.parse(raw.toString('utf8') || '{}')
+      seen.model = body.model
+      seen.prompt = String(body.messages?.[1]?.content || '')
+      sendMockJson(res, 200, { choices: [{ message: { content: 'Amazon title\nBullet 1: cotton tee' } }] })
+      return
+    }
+    if (req.url === '/v1/images/generations') {
+      seen.generations += 1
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_CHAT_API_KEY: 'test-chat-key',
+    AMAM_VENDOR_CHAT_BASE_URL: mock.origin,
+    AMAM_VENDOR_CHAT_MODEL: 'sensenova-6.8-flash-lite',
+    AMAM_VENDOR_NANO_BANANA_API_KEY: 'test-image-key',
+    AMAM_VENDOR_NANO_BANANA_BASE_URL: mock.origin,
+    AMAM_VENDOR_NANO_BANANA_MODEL: 'sensenova-u1.5-fast'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'copy-live@amam.ai')
+    const copyJob = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'listing-generate',
+        model: 'nano-banana',
+        params: { product_info: 'cotton tee, 待补价格', platform: 'amazon', marketplace: 'US' }
+      })
+    })
+    const copyDone = await pollJob(base, token, copyJob.body.job.id)
+    assert.equal(copyDone.status, 'succeeded')
+    assert.equal(copyDone.outputs[0].text, 'Amazon title\nBullet 1: cotton tee')
+    assert.equal(seen.chat, 1)
+    assert.equal(seen.model, 'sensenova-6.8-flash-lite')
+    assert.match(seen.prompt, /Copy policy/)
+    assert.equal(JSON.stringify(copyDone).includes('test-chat-key'), false)
+
+    const imageJob = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ scene: 'hero-image', model: 'nano-banana', params: { outputCount: 1 } })
+    })
+    const imageDone = await pollJob(base, token, imageJob.body.job.id)
+    assert.equal(imageDone.status, 'succeeded')
+    assert.equal(seen.generations, 1)
+    assert.equal(seen.chat, 1)
+  })
+})
+
+test('suite jobs keep slot labels and analyze jobs return text', async (t) => {
+  const { server, base } = await listen()
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const { token } = await loginAs(base, 'suite-slots@amam.ai')
+  const created = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      scene: 'suite',
+      model: 'seedream',
+      params: {
+        outputCount: 2,
+        slots: [
+          { key: 'white_bg_count', label: '白底图', brief: '平台主图' },
+          { key: 'sell_point_count', label: '卖点图', brief: '场景加卖点' }
+        ]
+      }
+    })
+  })
+  const finished = await pollJob(base, token, created.body.job.id)
+  assert.equal(finished.status, 'succeeded')
+  assert.equal(finished.outputs.length, 2)
+  assert.equal(finished.outputs[0].slot, '白底图')
+  assert.equal(finished.outputs[1].slot, '卖点图')
+
+  const analyzed = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      scene: 'ai-copywriting',
+      model: 'nano-banana',
+      params: { analyze: true, outputMode: 'text', product_info: '' }
+    })
+  })
+  const analysis = await pollJob(base, token, analyzed.body.job.id)
+  assert.equal(analysis.status, 'succeeded')
+  assert.match(analysis.outputs[0].text, /产品名称/)
+  assert.match(analysis.outputs[0].text, /待补/)
+})
+
+test('live analyze jobs send product images to chat completions', async (t) => {
+  const seen = { chat: 0, types: [] }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/chat/completions') {
+      seen.chat += 1
+      const body = JSON.parse(raw.toString('utf8') || '{}')
+      const content = body.messages?.[1]?.content
+      seen.types = Array.isArray(content) ? content.map((part) => part.type) : [typeof content]
+      sendMockJson(res, 200, { choices: [{ message: { content: '[产品名称]：棉质短袖\n[核心卖点]：透气\n[适用人群]：待补\n[规格参数]：待补\n[套图建议]：白底主图' } }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_CHAT_API_KEY: 'test-chat-key',
+    AMAM_VENDOR_CHAT_BASE_URL: mock.origin,
+    AMAM_VENDOR_CHAT_MODEL: 'sensenova-6.8-flash-lite'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'suite-analyze-live@amam.ai')
+    const asset = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'tee.png', role: 'product', mime: 'image/png', data: PNG_1X1 })
+    })
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'ai-copywriting',
+        model: 'nano-banana',
+        params: { analyze: true, outputMode: 'text', product_info: '' },
+        refs: [{ role: 'product', name: 'tee.png', url: asset.body.url }]
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.match(finished.outputs[0].text, /产品名称/)
+    assert.equal(seen.chat, 1)
+    assert.deepEqual(seen.types, ['text', 'image_url'])
+  })
+})
+
+test('suite prompt includes platform, slot and no-text policy', () => {
+  const prompt = buildPrompt({
+    scene: 'suite',
+    params: {
+      product_info: '[产品名称]：棉质短袖\n[规格参数]：待补',
+      platform: '淘宝',
+      language: '中文简体',
+      extra_description: '主图加促销字',
+      brand_name: '示例品牌',
+      slot: '白底图',
+      slot_brief: '平台主图',
+      no_text: true
+    },
+    refs: [{ role: 'product', name: 'tee.png' }]
+  })
+  assert.match(prompt, /Scene: 商品套图/)
+  assert.match(prompt, /目标平台: 淘宝/)
+  assert.match(prompt, /当前版位: 白底图/)
+  assert.match(prompt, /版位说明: 平台主图/)
+  assert.match(prompt, /No on-image text except original product branding/)
+  assert.equal(prompt.includes('商品资料'), false)
+  assert.equal(prompt.includes('棉质短袖'), false)
+  assert.equal(prompt.includes('[产品名称]'), false)
+  assert.equal(prompt.includes('文案语言'), false)
+  assert.equal(prompt.includes('示例品牌'), false)
+  assert.equal(prompt.includes('主图加促销字'), false)
+})
+
+test('live suite slots call the vendor once per slot prompt', async (t) => {
+  const seen = { prompts: [] }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/images/generations') {
+      const body = JSON.parse(raw.toString('utf8') || '{}')
+      seen.prompts.push(String(body.prompt || ''))
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_SEEDREAM_API_KEY: 'test-slot-key',
+    AMAM_VENDOR_SEEDREAM_BASE_URL: mock.origin,
+    AMAM_VENDOR_SEEDREAM_MODEL: 'seedream-4.5'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'suite-live-slots@amam.ai')
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'suite',
+        model: 'seedream',
+        params: {
+          outputCount: 2,
+          slots: [
+            { key: 'white_bg_count', label: '白底图', brief: '平台主图' },
+            { key: 'scene_count', label: '场景图', brief: '真实使用场景' }
+          ]
+        }
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.equal(finished.outputs.length, 2)
+    assert.equal(seen.prompts.length, 2)
+    assert.match(seen.prompts[0], /当前版位: 白底图/)
+    assert.match(seen.prompts[1], /当前版位: 场景图/)
+    assert.equal(finished.outputs[0].slot, '白底图')
+    assert.equal(finished.outputs[1].slot, '场景图')
+  })
 })

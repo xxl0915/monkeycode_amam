@@ -7,7 +7,7 @@
 ```
 src/data/
 ├── catalogs.js        # 商品图/模特图/视频/工具/平面/POD/衍生等目录与索引
-├── sceneSchemas.json  # 88 个场景的契约（roles/fields/maxOutputs 等）
+├── sceneSchemas.json  # 93 个场景的契约（roles/fields/maxOutputs 等）
 ├── business.js        # 业务分类读取辅助函数
 └── business.json      # 业务分类数据（category/groups/scenes）
 ```
@@ -19,7 +19,7 @@ src/data/
 | `catalogs.js` | 导出 `productCatalog`、`modelCatalog`、`podCatalog`、`deriveCatalog`、`onlineModels`、`searchIndex`、`helpFaqs` 等 |
 | `sceneSchemas.json` | 服务端 `GET /scenes` 与前端 `ProductSceneView` 共享的场景契约 |
 | `business.js` | `getBusinessCategory`、`getBusinessScenes`、`findBusinessScene`、`filterBusinessScenes`、`sceneRoute`、`catalogNavRoute` |
-| `business.json` | 业务分类原始数据；营销 14、平面 6、电商素材 11 个出图入口复用已有工作台；工具箱剩余出图入口与跨境套图入口同样 `targetRoute` 复用；证件照/检测/文案/视频仍为逐步接入 |
+| `business.json` | 业务分类原始数据；营销 14、平面 6、电商素材 11 个出图入口复用已有工作台；工具箱剩余出图入口与跨境套图入口同样 `targetRoute` 复用；电商文案/标题与跨境 Listing 文案走对话工作台；证件照/检测/视频仍为逐步接入 |
 
 ## 依赖
 

@@ -153,7 +153,7 @@
 { "scenes": [ { "slug": "suite", "title": "商品套图", "group": "...", "roles": [], "fields": [], "maxOutputs": 4, "defaultRatio": "3:4", "outputMode": "...", "instruction": "..." } ] }
 ```
 
-数据来源：`src/data/sceneSchemas.json`（共 88 个场景，含商品图、模特图、POD、爆款衍生、图层拆分 / 去水印 Pro / 打印尺寸，以及白底、抠图、超清、扩图、消除、万能改图）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用这些契约，不新增 slug。
+数据来源：`src/data/sceneSchemas.json`（共 93 个场景，含商品图、模特图、POD、爆款衍生、图层拆分 / 去水印 Pro / 打印尺寸、白底/抠图/超清/扩图/消除/万能改图，以及 5 个 `outputMode=text` 的文案场景）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用图像契约。
 
 ### GET /api/v1/models
 
@@ -163,7 +163,7 @@
 { "models": [ { "id": "seedream", "name": "Seedream 4.5", "video": false } ] }
 ```
 
-与前端 `onlineModels` 对齐：`nano-banana`、`nano-pro`、`seedream`、`gpt-image`（图像），以及 `kling`、`seedance`（`video: true`，本阶段创建任务后以 `unsupported_model` 失败并退款）。
+与前端 `onlineModels` 对齐：`nano-banana`、`nano-pro`、`seedream`、`gpt-image`、`gpt-image-25-sunburst`、`gpt-image-25-flare`、`gpt-image-25`（图像），以及 `kling`、`seedance`（`video: true`，本阶段创建任务后以 `unsupported_model` 失败并退款）。球球 Token 三档上游模型名为 `gpt-image-2.5-sunburst`、`gpt-image-2.5-flare`、`gpt-image-2.5`。
 
 ### POST /api/v1/jobs
 
@@ -174,9 +174,11 @@
   "scene": "商品主图",
   "model": "seedream-4.0",
   "params": { "outputCount": 2, "ratio": "3:4" },
-      "refs": [ { "role": "product", "name": "a.png", "url": "/api/v1/assets/ast_.../file" } ]
+  "refs": [ { "role": "product", "name": "a.png", "url": "/api/v1/assets/ast_.../file" } ]
 }
 ```
+
+商品套图可在 `params.slots` 传入 `[{ key, label, brief }]`，worker 按版位分别出图。`params.analyze=true` 且 `outputMode=text` 时走对话分析。
 
 - `scene` 为空：`400 missing_scene`
 - `scene` 不在已知场景集合内：`400 invalid_scene`（匹配 `slug` 或 `title`，集合为 `sceneSchemas.json` 与 `catalogs.js` 的并集）
@@ -211,7 +213,8 @@
 - 任务不存在或不属于当前用户：`404 not_found`（按令牌隔离）
 - `GET` 返回 `{ "job": { ... } }`
 - `DELETE` 成功返回 `{ "ok": true, "user": { ... } }`；若任务仍在 `queued` / `running`，会退还已冻结积分
-- `AMAM_VENDOR_MODE=live` 时成功 `outputs[].url` 为 `/api/v1/assets/{id}/file`；`fake` 时仍为 `/product-scenes/samples/...`
+- `AMAM_VENDOR_MODE=live` 时图像成功 `outputs[].url` 为 `/api/v1/assets/{id}/file`；`fake` 时仍为 `/product-scenes/samples/...`
+- 文案任务成功时 `outputs[].text` 为对话结果，不含图片 `url`；套图 AI 分析把商品图一并交给对话模型
 - 任务失败时 `job.error` 可能为 `vendor_unconfigured`、`vendor_error`、`vendor_timeout`、`vendor_empty`、`unsupported_model`
 
 ## 前端模块接口

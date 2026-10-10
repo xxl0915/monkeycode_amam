@@ -8,11 +8,20 @@
         <label class="block">提示词
           <textarea v-model="prompt" rows="6" placeholder="描述你想生成的画面、构图、光线和商品卖点"></textarea>
         </label>
-        <label class="block">模型
-          <select v-model="model">
-            <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
-          </select>
-        </label>
+        <div class="block">模型
+          <div class="model-picker">
+            <button
+              v-for="m in models"
+              :key="m.id"
+              type="button"
+              :class="{ on: model === m.id }"
+              @click="model = m.id"
+            >
+              <b>{{ m.name }}</b>
+              <small>{{ m.spec }}</small>
+            </button>
+          </div>
+        </div>
         <div class="row">
           <label>比例
             <select v-model="ratio">
@@ -85,8 +94,8 @@ const all = [
 const sceneMeta = computed(() => all.find((s) => s.slug === props.scene) || { title: props.scene, description: '按当前场景生成对应视觉结果。' })
 const kindLabel = computed(() => ({ product: '商品图', model: '模特图', video: 'AI视频', tool: '图片工具', graphic: '平面设计', pod: '图片POD', derive: '爆款衍生', marketing: '营销场景', cross: '跨境上架', ecom: '电商素材' }[props.kind] || '工作台'))
 const prompt = ref(route.query.prompt || sceneMeta.value.description || '')
-const model = ref(onlineModels[0].id)
-const models = onlineModels.filter((m) => props.kind === 'video' ? m.video : !m.video).concat(onlineModels)
+const models = onlineModels.filter((m) => props.kind === 'video' ? m.video : !m.video)
+const model = ref(models[0]?.id || onlineModels[0].id)
 const ratio = ref('3:4')
 const res = ref('2K')
 const refs = ref([])
@@ -179,6 +188,11 @@ aside { position: sticky; top: 6.2rem; align-self: start; padding: 1.1rem; borde
 h1 { margin: .35rem 0 0; font-size: 1.25rem; }
 p { color: var(--fg-2); font-size: .82rem; line-height: 1.65; }
 .block, .row label, .upload { display: grid; gap: .35rem; margin: .85rem 0; font-size: .78rem; color: var(--fg-3); }
+.model-picker { display: grid; gap: .4rem; }
+.model-picker button { display: grid; gap: .15rem; padding: .55rem .65rem; border: 1px solid var(--hairline); border-radius: .7rem; color: var(--fg-2); background: #fff; text-align: left; }
+.model-picker button b { color: var(--fg); font-size: .78rem; }
+.model-picker button small { color: var(--fg-3); font-size: .62rem; line-height: 1.35; }
+.model-picker button.on { border-color: #7c3aed; background: #7c3aed14; }
 textarea, select { width: 100%; border: 1px solid var(--hairline); border-radius: .7rem; padding: .7rem; background: #fff; color: var(--fg); }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .thumbs { display: flex; gap: .4rem; flex-wrap: wrap; }

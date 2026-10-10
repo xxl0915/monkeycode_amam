@@ -112,10 +112,25 @@
                       </article>
                     </div>
                   </div>
-                </template>
-              </div>
-            </section>
-          </div>
+                 </template>
+                 <div class="field-block">
+                   <span class="field-name">图片模型</span>
+                   <div class="model-picker">
+                     <button
+                       v-for="m in models"
+                       :key="m.id"
+                       type="button"
+                       :class="{ active: selectedModel === m.id }"
+                       @click="selectedModel = m.id"
+                     >
+                       <strong>{{ m.name }}</strong>
+                       <small>{{ m.spec }}</small>
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             </section>
+           </div>
           <div class="scene-submit">
             <div>
               <strong>{{ outputCount }} 张</strong>
@@ -204,6 +219,7 @@ const kindLabel = computed(() => ({
 }[kind.value] || '商品图'))
 const schema = computed(() => sceneSchemas.find((s) => s.slug === sceneSlug.value) || null)
 const models = onlineModels.filter((m) => !m.video)
+const selectedModel = ref(models[0]?.id || '')
 
 const fileInput = ref(null)
 const pickRole = ref('product')
@@ -389,7 +405,7 @@ async function generate() {
     const refs = Object.entries(uploads).flatMap(([role, list]) =>
       (list || []).filter((item) => item.url).map((item) => ({ role, name: item.name, url: item.url, assetId: item.assetId }))
     )
-    const modelId = models[0]?.id || ''
+    const modelId = selectedModel.value || models[0]?.id || ''
     const job = await createJob({
       scene: schema.value.slug,
       model: modelId,
@@ -463,6 +479,11 @@ async function generate() {
 .choice-pills { display: flex; gap: .35rem; flex-wrap: wrap; }
 .choice-pills button { padding: .4rem .55rem; border: 1px solid var(--hairline); border-radius: 999px; color: var(--fg-2); background: var(--surface); font-size: .64rem; }
 .choice-pills button.active { border-color: #fb7185; color: #ef4444; background: #fb71851a; }
+.model-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .4rem; }
+.model-picker button { display: grid; gap: .2rem; min-height: 3.2rem; padding: .5rem .6rem; border: 1px solid var(--hairline); border-radius: 7px; color: var(--fg-2); background: var(--surface); text-align: left; }
+.model-picker button strong { color: var(--fg); font-size: .72rem; }
+.model-picker button small { color: var(--fg-3); font-size: .6rem; line-height: 1.35; }
+.model-picker button.active { border-color: #7c3aed; background: #7c3aed14; }
 .color-label input { width: 3rem; height: 2.2rem; padding: 0; }
 .repeater-head, .repeater-row-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .repeater-row { display: grid; gap: .45rem; margin-top: .45rem; padding: .65rem; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-2); }

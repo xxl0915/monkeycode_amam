@@ -8,7 +8,7 @@
             <h2>商品套图</h2>
             <p>上传商品图，一键生成风格统一的多平台电商套图</p>
           </div>
-          <button type="button" class="suite-new-task" :disabled="busy" @click="resetTask">＋ 新建任务</button>
+           <button type="button" class="suite-new-task" :disabled="submitting" @click="resetTask">＋ 新建任务</button>
         </div>
         <div class="suite-input-scroll">
           <section class="suite-panel">
@@ -16,7 +16,7 @@
               <span>1</span>
               <div>
                 <h2>上传商品图 <em class="required-mark">（必填）</em></h2>
-                <p>主图用于锁定商品外形；其他角度和细节图可继续补充，最多 5 张。</p>
+                <p>主图用于锁定商品外形；其他角度和细节图可继续补充，最多 10 张。</p>
               </div>
             </div>
             <div class="upload-section">
@@ -86,14 +86,15 @@
               </button>
               <button type="button" class="text-btn" @click="fillGuide"><Icon name="list" :size="14" /> 输入向导</button>
             </div>
+            <p v-if="analyzeHint" class="suite-analyze-hint" :class="{ error: !!notice && !analyzing }">{{ analyzeHint }}</p>
             <div class="suite-analysis-usage">
               <div class="suite-analysis-usage-head">
                 <span>AI 分析额度与费用</span>
-                <strong>{{ images.length ? '本次演示免费' : '上传商品主图后估算' }}</strong>
+                <strong>{{ images.length ? (store.user ? '4 积分' : '登录后估算') : '上传商品主图后估算' }}</strong>
               </div>
               <div class="suite-analysis-usage-body">
                 <span>按实际用量结算</span>
-                <small>分析前会显示预估上限；当前为本地演示，不调用原站接口。</small>
+                <small>分析会读取已上传商品图；缺失价格、认证与规格会标为待补。</small>
               </div>
             </div>
           </section>
@@ -249,12 +250,20 @@
                 <span>模型与画质</span>
                 <small>使用当前账号的图片引擎和计费</small>
               </div>
+              <div class="model-picker">
+                <button
+                  v-for="m in models"
+                  :key="m.id"
+                  type="button"
+                  class="model-card-btn"
+                  :class="{ active: form.model_id === m.id }"
+                  @click="form.model_id = m.id"
+                >
+                  <strong>{{ m.name }}</strong>
+                  <small>{{ m.spec }}</small>
+                </button>
+              </div>
               <div class="field-grid">
-                <label><span>图片模型</span>
-                  <select v-model="form.model_id">
-                    <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
-                  </select>
-                </label>
                 <div>
                   <span class="field-label">画质</span>
                   <div class="choice-grid">
@@ -325,8 +334,8 @@
             <strong>{{ totalCount }} 张</strong>
             <small>{{ canGenerate ? 'AI 生成 · 4 积分' : generateHint }}</small>
           </div>
-          <button type="button" class="primary-btn" :disabled="!canGenerate || busy" @click="generate">
-            {{ busy ? '生成中…' : uploading ? '上传中…' : `开始生成 ${totalCount} 张 4 积分` }}
+          <button type="button" class="primary-btn" :disabled="!canGenerate" @click="generate">
+            {{ submitting ? '提交中…' : uploading ? '上传中…' : `开始生成 ${totalCount} 张 4 积分` }}
           </button>
         </div>
       </div>
@@ -338,7 +347,7 @@
               <h2>商品套图</h2>
               <p>上传商品图，一键生成风格统一的多平台电商套图</p>
             </div>
-            <button type="button" class="suite-refresh-button" @click="resultTab = 'ai'">刷新</button>
+            <button type="button" class="suite-refresh-button" @click="refreshTasks">刷新</button>
           </div>
           <div class="suite-result-tabs">
             <button type="button" :class="{ on: resultTab === 'ai' }" @click="resultTab = 'ai'"><Icon name="spark" :size="14" /> AI 创作结果 <b v-if="tasks.length">{{ tasks.length }}</b></button>
@@ -362,23 +371,28 @@
                       </div>
                       <div class="suite-task-meta">
                         <span>{{ task.when }}</span>
-                        <span>已处理 {{ task.items.length }}/{{ task.items.length }} 张</span>
+                        <span>已处理 {{ doneCount(task) }}/{{ task.items.length }} 张</span>
                         <span>实际 4 积分</span>
                       </div>
                     </div>
                     <div class="suite-task-actions">
-                      <a class="suite-task-action" :href="task.items[0]?.image" download><span>下载</span></a>
+                      <button v-if="task.statusClass === 'is-failed'" type="button" class="suite-task-action" @click.stop="retryTask(task)">重试</button>
+                      <a v-else-if="task.items[0]?.image" class="suite-task-action" :href="task.items[0].image" download @click.stop><span>下载</span></a>
                     </div>
                   </div>
                   <div v-if="selectedTaskId === task.id" class="suite-task-body">
                     <div class="suite-output-grid">
                       <figure v-for="item in task.items" :key="item.id">
                         <span class="suite-output-badge">{{ item.slot }}</span>
-                        <img :src="item.image" :alt="item.slot" />
+                        <img v-if="item.image" :src="item.image" :alt="item.slot" />
+                        <div v-else class="suite-output-pending" :class="item.status">{{ item.error || (item.status === 'failed' ? '生成失败' : '生成中…') }}</div>
                         <figcaption>
                           <div class="suite-output-caption-title">{{ item.slot }}</div>
                           <div class="suite-output-caption-meta">{{ item.ratio }} · {{ item.model }}</div>
-                          <a :href="item.image" download>下载</a>
+                          <div class="suite-output-caption-actions">
+                            <a v-if="item.image" :href="item.image" download>下载</a>
+                            <button type="button" :disabled="item.retrying || submitting" @click.stop="retryItem(task, item)">{{ item.retrying ? (item.image ? '重新生成中…' : '重试中…') : (item.image ? '重新生成' : '重试') }}</button>
+                          </div>
                         </figcaption>
                       </figure>
                     </div>
@@ -406,7 +420,7 @@
           <li><b>填写商品要求</b> 补充卖点、受众、平台和版位数量，信息越具体，生成结果越稳定。</li>
           <li><b>连续提交任务</b> 每次提交都会形成独立任务，生成期间可以继续编辑并提交下一套图。</li>
         </ol>
-        <p>当前为本地演示：生成会扣除 4 积分并返回样图结果。</p>
+        <p>每次生成扣除 4 积分；生成期间可继续编辑并提交下一套图。单张结果可单独重试。</p>
       </section>
     </div>
     <p v-if="notice" class="suite-feedback"><span>{{ notice }}</span></p>
@@ -416,15 +430,15 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import { onlineModels } from '../data/catalogs'
 import { persistLocalItem, localImageItem, revokePreview } from '../api/upload'
 import { friendlyJobError } from '../api/client'
-import { store, createJob, pollJob } from '../store'
+import { store, createJob, pollJob, loadJobs } from '../store'
 
-const maxImages = 5
+const maxImages = 10
 const maxSlots = 12
 const fileInput = ref(null)
 const pickRole = ref('main')
@@ -434,7 +448,7 @@ const tipOpen = ref(false)
 const moreOpen = ref(false)
 const infoExpanded = ref(false)
 const analyzing = ref(false)
-const busy = ref(false)
+const submitting = ref(false)
 const tutorialOpen = ref(false)
 const notice = ref('')
 const resultTab = ref('ai')
@@ -455,7 +469,7 @@ const slotGroups = [
   { title: '主副图', items: [['sell_point_count', '卖点图', '场景加卖点'], ['white_bg_count', '白底图', '平台主图'], ['dimension_count', '尺寸图', '标尺加规格'], ['scene_count', '场景图', '真实使用场景'], ['closeup_count', '特写图', '细节材质'], ['closeup_white_count', '特写白底', '白底细节']] }
 ]
 const slotKeys = slotGroups.flatMap((g) => g.items.map((i) => i[0]))
-const slotLabel = Object.fromEntries(slotGroups.flatMap((g) => g.items.map((i) => [i[0], i[1]])))
+const slotMeta = Object.fromEntries(slotGroups.flatMap((g) => g.items.map((i) => [i[0], { label: i[1], brief: i[2] }])))
 
 const markets = [
   { value: 'china', label: '中文电商', icon: 'CN' },
@@ -557,13 +571,20 @@ const currentLanguages = computed(() => languages[form.market_mode] || languages
 const marketLabel = computed(() => (form.market_mode === 'china' ? '中国' : '跨境'))
 const totalCount = computed(() => slotKeys.reduce((n, k) => n + Math.max(0, Math.min(4, Number(form[k]) || 0)), 0))
 const uploading = computed(() => images.value.some((img) => img.uploading))
-const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !busy.value && !analyzing.value && !uploading.value)
+const canGenerate = computed(() => !!mainImage.value && !!form.product_info.trim() && totalCount.value > 0 && !submitting.value && !analyzing.value && !uploading.value)
 const generateHint = computed(() => {
   if (!mainImage.value) return '请先上传商品主图'
   if (!form.product_info.trim()) return '请填写商品卖点与要求'
   if (totalCount.value <= 0) return '请至少选择 1 个输出版位'
   if (uploading.value) return '图片上传中'
   return '补充参数后即可生成'
+})
+const analyzeHint = computed(() => {
+  if (analyzing.value) return '正在读取商品图并整理卖点…'
+  if (notice.value && /分析|撰写|登录|上传失败|上游|积分/.test(notice.value)) return notice.value
+  if (!images.value.length) return '先上传商品主图再分析'
+  if (uploading.value) return '图片上传中，完成后可分析'
+  return ''
 })
 
 function pickFiles(role) {
@@ -576,9 +597,14 @@ async function persistPendingImages() {
 }
 
 watch(() => store.user?.id, async (id) => {
-  if (!id) return
+  if (!id) {
+    tasks.value = []
+    selectedTaskId.value = ''
+    return
+  }
   try {
     await persistPendingImages()
+    hydrateSuiteJobs(store.jobs)
   } catch (e) {
     notice.value = e?.message || '上传失败'
   }
@@ -656,72 +682,276 @@ function fillGuide() {
   form.product_info = `[产品名称]：\n[规格数量]：\n[目标受众]：\n[卖点描述]：\n[产品卖点]：\n[材质描述]：\n[使用方式]：\n[产品类目]：\n[套图要求]：`
   infoExpanded.value = true
 }
-async function analyze() {
-  if (!images.value.length) return
-  analyzing.value = true
-  await new Promise((r) => setTimeout(r, 700))
-  if (!form.product_info.trim()) {
-    form.product_info = '商品主图已识别。建议补充产品名称、核心卖点、适用人群、使用场景和关键参数，以便套图文案与版位更稳定。'
-  }
-  analyzing.value = false
+
+function selectedSlots() {
+  const list = []
+  slotKeys.forEach((key) => {
+    const count = Math.max(0, Math.min(4, Number(form[key]) || 0))
+    const meta = slotMeta[key]
+    for (let i = 0; i < count; i += 1) {
+      list.push({
+        key,
+        label: count > 1 ? `${meta.label} ${i + 1}` : meta.label,
+        brief: meta.brief
+      })
+    }
+  })
+  return list.slice(0, maxSlots)
 }
+
+function currentRefs() {
+  return images.value
+    .map((img, index) => ({ img, index }))
+    .filter(({ img }) => img.url)
+    .map(({ img, index }) => ({
+      role: img.role || 'product',
+      name: img.name,
+      url: img.url,
+      assetId: img.assetId,
+      main: index === mainImageIndex.value
+    }))
+}
+
+function formatWhen(ts) {
+  return new Date(ts || Date.now()).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function statusMeta(status, error) {
+  if (status === 'succeeded') return { statusLabel: '已完成', statusClass: 'is-completed' }
+  if (status === 'failed') return { statusLabel: friendlyJobError(error), statusClass: 'is-failed' }
+  if (status === 'running') return { statusLabel: '生成中', statusClass: 'is-running' }
+  return { statusLabel: '排队中', statusClass: 'is-queued' }
+}
+
+function itemsFromJob(job, fallbackSlots = [], fallbackForm = form) {
+  const slots = Array.isArray(job.params?.slots) && job.params.slots.length ? job.params.slots : fallbackSlots
+  const outputs = job.outputs || []
+  const count = Math.max(slots.length, outputs.length, Number(job.params?.outputCount) || 0)
+  return Array.from({ length: count }, (_, i) => {
+    const output = outputs[i]
+    const slot = slots[i] || {}
+    const pending = job.status === 'queued' || job.status === 'running'
+    return {
+      id: `${job.id}-${output?.index ?? i}`,
+      slot: output?.slot || slot.label || '套图',
+      slotKey: slot.key || '',
+      brief: slot.brief || '',
+      image: output?.url || '',
+      ratio: job.params?.aspect_ratio || fallbackForm.aspect_ratio,
+      model: job.model || fallbackForm.model_id,
+      status: output?.url ? 'succeeded' : (job.status === 'failed' ? 'failed' : pending ? 'running' : 'empty'),
+      error: job.status === 'failed' ? friendlyJobError(job.error) : '',
+      retrying: false
+    }
+  })
+}
+
+function upsertTask(job, extra = {}) {
+  const existing = tasks.value.find((task) => task.id === job.id)
+  const items = extra.items || itemsFromJob(job, extra.slots || existing?.items.map((item) => ({ key: item.slotKey, label: item.slot, brief: item.brief })) || [])
+  const meta = statusMeta(job.status, job.error)
+  const task = {
+    id: job.id,
+    name: extra.name || existing?.name || `商品套图任务 ${job.id.slice(-8)}`,
+    statusLabel: meta.statusLabel,
+    statusClass: meta.statusClass,
+    when: formatWhen(job.createdAt),
+    items,
+    job
+  }
+  const index = tasks.value.findIndex((item) => item.id === job.id)
+  if (index >= 0) tasks.value[index] = task
+  else tasks.value.unshift(task)
+  return task
+}
+
+function doneCount(task) {
+  return (task.items || []).filter((item) => item.image).length
+}
+
+async function ensureReady() {
+  if (!store.user) {
+    store.loginOpen = true
+    return false
+  }
+  await persistPendingImages()
+  const failed = images.value.find((img) => img.file && !img.url)
+  if (failed) throw new Error(failed.error || '图片上传失败')
+  return true
+}
+
+async function analyze() {
+  if (!images.value.length) {
+    notice.value = '请先上传商品主图'
+    return
+  }
+  if (!store.user) {
+    store.loginOpen = true
+    notice.value = '登录后即可分析商品图'
+    return
+  }
+  analyzing.value = true
+  notice.value = ''
+  try {
+    const ready = await ensureReady()
+    if (!ready) {
+      notice.value = notice.value || '登录后即可分析商品图'
+      return
+    }
+    const refs = currentRefs()
+    if (!refs.length) throw new Error('请先上传可识别的商品图')
+    const job = await createJob({
+      scene: 'ai-copywriting',
+      model: form.model_id || 'nano-banana',
+      params: {
+        product_info: form.product_info,
+        extra_description: form.extra_description,
+        platform: form.platform,
+        language: form.language,
+        analyze: true,
+        outputMode: 'text',
+        outputCount: 1
+      },
+      refs
+    })
+    const finished = await pollJob(job.id)
+    if (finished.status === 'queued' || finished.status === 'running') throw new Error('分析超时，请稍后重试')
+    if (finished.status !== 'succeeded') throw new Error(friendlyJobError(finished.error))
+    const text = String(finished.outputs?.[0]?.text || '').trim()
+    if (!text) throw new Error('上游未返回分析结果')
+    form.product_info = text
+    infoExpanded.value = true
+    notice.value = '已根据商品图生成卖点草稿，请核对后生成'
+  } catch (error) {
+    notice.value = error?.message || '分析失败，请稍后重试'
+  } finally {
+    analyzing.value = false
+  }
+}
+
 function resetTask() {
   notice.value = '已保留当前参数，可继续编辑后提交下一套图。'
 }
+
+function suiteParams(slots) {
+  return {
+    ...form,
+    outputCount: slots.length,
+    slots,
+    no_text: form.no_text && !form.text_required,
+    text_amount_mode: form.text_amount ? form.text_amount_mode : '',
+    layout_mode_value: form.layout_mode ? form.layout_mode_value : '',
+    page_structure_value: form.page_structure ? form.page_structure_value : '',
+    template_style_value: form.template_style ? form.template_style_value : '',
+    product_depth_value: form.product_depth ? form.product_depth_value : ''
+  }
+}
+
+async function followJob(job, slots) {
+  const task = upsertTask(job, { slots })
+  selectedTaskId.value = task.id
+  resultTab.value = 'ai'
+  const finished = await pollJob(job.id)
+  upsertTask(finished, { slots, name: task.name })
+  if (finished.status !== 'succeeded') notice.value = friendlyJobError(finished.error)
+}
+
 async function generate() {
   if (!canGenerate.value) return
+  submitting.value = true
+  notice.value = ''
+  try {
+    const ready = await ensureReady()
+    if (!ready) return
+    const slots = selectedSlots()
+    const job = await createJob({
+      scene: 'suite',
+      model: form.model_id,
+      params: suiteParams(slots),
+      refs: currentRefs()
+    })
+    followJob(job, slots).catch((error) => {
+      notice.value = error?.message || '生成失败，请稍后重试'
+    })
+  } catch (error) {
+    notice.value = error?.message || '生成失败，请稍后重试'
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function retryItem(task, item) {
   if (!store.user) {
     store.loginOpen = true
     return
   }
-  busy.value = true
+  item.retrying = true
   notice.value = ''
   try {
-    await persistPendingImages()
-    const failed = images.value.find((img) => img.file && !img.url)
-    if (failed) throw new Error(failed.error || '图片上传失败')
-    const refs = images.value
-      .map((img, index) => ({ img, index }))
-      .filter(({ img }) => img.url)
-      .map(({ img, index }) => ({
-        role: img.role || 'product',
-        name: img.name,
-        url: img.url,
-        assetId: img.assetId,
-        main: index === mainImageIndex.value
-      }))
+    const ready = await ensureReady()
+    if (!ready) return
+    const slot = { key: item.slotKey, label: item.slot, brief: item.brief }
     const job = await createJob({
       scene: 'suite',
       model: form.model_id,
-      params: { ...form, outputCount: totalCount.value },
-      refs
+      params: { ...suiteParams([slot]), outputCount: 1, retryOf: task.id },
+      refs: currentRefs()
     })
     const finished = await pollJob(job.id)
     if (finished.status !== 'succeeded') throw new Error(friendlyJobError(finished.error))
-    const items = (finished.outputs || []).map((output, i) => ({
-      id: `${finished.id}-${output.index ?? i}`,
-      slot: slotLabel[slotKeys[i]] || '套图',
-      image: output.url,
-      ratio: form.aspect_ratio,
-      model: form.model_id
-    }))
-    const task = {
-      id: finished.id,
-      name: `商品套图任务 ${finished.id.slice(-8)}`,
-      statusLabel: '已完成',
-      statusClass: 'is-completed',
-      when: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      items
+    item.image = finished.outputs?.[0]?.url || ''
+    item.status = item.image ? 'succeeded' : 'failed'
+    item.error = ''
+    item.model = form.model_id
+    item.ratio = form.aspect_ratio
+    if (task.items.every((entry) => entry.image)) {
+      task.statusLabel = '已完成'
+      task.statusClass = 'is-completed'
     }
-    tasks.value.unshift(task)
-    selectedTaskId.value = task.id
-    resultTab.value = 'ai'
   } catch (error) {
-    notice.value = error?.message || '生成失败，请稍后重试'
+    item.status = 'failed'
+    item.error = error?.message || '重试失败'
+    notice.value = item.error
   } finally {
-    busy.value = false
+    item.retrying = false
   }
 }
+
+async function retryTask(task) {
+  const targets = (task.items || []).filter((item) => !item.image)
+  if (!targets.length && task.items[0]) {
+    await retryItem(task, task.items[0])
+    return
+  }
+  for (const item of targets) await retryItem(task, item)
+}
+
+function hydrateSuiteJobs(jobs) {
+  const suiteJobs = (jobs || store.jobs || [])
+    .filter((job) => job.scene === 'suite' && !job.params?.retryOf)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+  suiteJobs.forEach((job) => {
+    const existing = tasks.value.find((task) => task.id === job.id)
+    if (!existing) upsertTask(job)
+    else if (existing.statusClass === 'is-running' || existing.statusClass === 'is-queued') upsertTask(job)
+  })
+}
+
+async function refreshTasks() {
+  resultTab.value = 'ai'
+  if (!store.user) return
+  try {
+    const jobs = await loadJobs()
+    tasks.value = []
+    hydrateSuiteJobs(jobs)
+  } catch (error) {
+    notice.value = error?.message || '刷新失败'
+  }
+}
+
+onMounted(() => {
+  if (store.user) hydrateSuiteJobs(store.jobs)
+})
 </script>
 
 <style scoped>
@@ -768,6 +998,8 @@ async function generate() {
 .suite-tips strong { color: var(--fg-2); font-style: italic; }
 .suite-tips .text-btn { margin-left: auto; flex: none; font-size: .6rem; }
 .suite-action-row { display: flex; align-items: center; gap: .35rem; margin-top: .65rem; }
+.suite-analyze-hint { margin: .4rem 0 0; color: var(--fg-3); font-size: .66rem; line-height: 1.45; }
+.suite-analyze-hint.error { color: #b91c1c; }
 .suite-analysis-usage { display: grid; gap: .35rem; margin-top: .65rem; padding: .65rem .7rem; border: 1px solid var(--hairline); border-radius: .5rem; background: var(--surface-2); }
 .suite-analysis-usage-head, .suite-analysis-usage-body { display: flex; align-items: baseline; justify-content: space-between; gap: .7rem; }
 .suite-analysis-usage-head span { color: var(--fg-2); font-size: .7rem; font-weight: 700; }
@@ -803,6 +1035,11 @@ input, select { height: 2.25rem; padding: 0 .55rem; font-size: .78rem; }
 .platform-chip b { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: .3rem; color: #0f172a; background: var(--accent, #e5e7eb); font-size: .55rem; }
 .platform-chip.active { border-color: #7c3aed; color: var(--fg); background: #7c3aed14; }
 .other-platform { margin-bottom: .55rem; }
+.model-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .45rem; }
+.model-card-btn { display: grid; gap: .2rem; min-height: 3.4rem; padding: .55rem .65rem; border: 1px solid var(--hairline); border-radius: .5rem; color: var(--fg-2); background: var(--surface-2); text-align: left; }
+.model-card-btn strong { color: var(--fg); font-size: .72rem; }
+.model-card-btn small { color: var(--fg-faint); font-size: .6rem; line-height: 1.35; }
+.model-card-btn.active { border-color: #7c3aed; color: var(--fg); background: #7c3aed14; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .7rem; margin-top: .7rem; }
 label > span, .field-label { display: block; margin-bottom: .3rem; color: var(--fg-2); font-size: .7rem; font-weight: 600; }
 .range-label b { margin-left: .35rem; color: #7c3aed; }
@@ -882,8 +1119,10 @@ label > span, .field-label { display: block; margin-bottom: .3rem; color: var(--
 .suite-task-title-line strong { font-size: 13px; }
 .suite-task-status { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 10px; font-size: 11px; }
 .suite-task-status.is-completed { background: #ecfdf5; color: #047857; }
+.suite-task-status.is-running, .suite-task-status.is-queued { background: #eef2ff; color: #4f46e5; }
+.suite-task-status.is-failed { background: #fef2f2; color: #b91c1c; }
 .suite-task-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; color: var(--fg-2); font-size: 11px; }
-.suite-task-action { min-height: 28px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 5px; color: #374151; text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; }
+.suite-task-action { min-height: 28px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 5px; color: #374151; background: #fff; text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; cursor: pointer; }
 .suite-task-body { padding: 0 14px 14px; border-top: 1px solid #f0f1f3; }
 .suite-output-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; padding-top: 12px; }
 .suite-output-grid figure { position: relative; overflow: hidden; border: 1px solid var(--hairline); border-radius: .65rem; background: #fff; margin: 0; }
@@ -892,7 +1131,11 @@ label > span, .field-label { display: block; margin-bottom: .3rem; color: var(--
 .suite-output-grid figcaption { display: grid; gap: .2rem; padding: .55rem .65rem; }
 .suite-output-caption-title { overflow: hidden; font-size: .72rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .suite-output-caption-meta { color: var(--fg-3); font-size: .62rem; }
-.suite-output-grid a { color: #7c3aed; font-size: .68rem; text-decoration: none; }
+.suite-output-grid a, .suite-output-caption-actions button { color: #7c3aed; font-size: .68rem; text-decoration: none; border: 0; background: transparent; padding: 0; }
+.suite-output-caption-actions { display: flex; gap: .55rem; align-items: center; }
+.suite-output-caption-actions button:disabled { opacity: .45; }
+.suite-output-pending { display: grid; place-items: center; aspect-ratio: 1; padding: .7rem; color: var(--fg-3); background: var(--surface-2); font-size: .68rem; text-align: center; }
+.suite-output-pending.failed { color: #b91c1c; }
 .suite-example-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .suite-example-item { overflow: hidden; border: 1px solid var(--hairline); border-radius: 6px; background: #fff; }
 .suite-example-item img { width: 100%; aspect-ratio: 1; object-fit: cover; }
