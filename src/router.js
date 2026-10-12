@@ -61,6 +61,9 @@ const router = createRouter({
         { path: 'tools/ai/outpaint-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'outpaint-pro' } },
         { path: 'tools/ai/eliminate-pro', component: ProductSceneView, props: { kind: 'tool', scene: 'eliminate-pro' } },
         { path: 'tools/ai/remove-watermark', component: ProductSceneView, props: { kind: 'tool', scene: 'remove-watermark' } },
+        { path: 'tools/ai/id-photo', component: ProductSceneView, props: { kind: 'tool', scene: 'id-photo' } },
+        { path: 'tools/ai/pro-portrait', component: ProductSceneView, props: { kind: 'tool', scene: 'pro-portrait' } },
+        { path: 'tools/ai/art-portrait', component: ProductSceneView, props: { kind: 'tool', scene: 'art-portrait' } },
         {
           path: 'tools/ai/:scene',
           component: BusinessScenePlanView,

@@ -671,8 +671,8 @@ test('P0 scene slugs can create jobs', async (t) => {
   const { token } = await loginAs(base, 'p0-scenes@amam.ai')
   const scenes = await json(`${base}/scenes`)
   assert.equal(scenes.status, 200)
-  assert.equal(scenes.body.scenes.length >= 93, true)
-  for (const scene of ['style-fusion', 'pattern-extract', 'watermark-pro', 'white-bg', 'ai-edit']) {
+  assert.equal(scenes.body.scenes.length >= 96, true)
+  for (const scene of ['style-fusion', 'pattern-extract', 'watermark-pro', 'white-bg', 'ai-edit', 'id-photo', 'pro-portrait', 'art-portrait']) {
     const created = await json(`${base}/jobs`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -832,7 +832,7 @@ test('toolbox remaining image scenes map to existing workbenches', async () => {
     'clothes-fix': '/product-images/wrinkle-remove',
     'shoes-fix': '/tools/ai/ai-edit'
   }
-  const deferred = ['id-photo', 'pro-portrait', 'art-portrait', 'pre-check', 'click-rate']
+  const deferred = ['pre-check', 'click-rate']
   const toolbox = cats.find((item) => item.key === 'toolbox')
   const scenes = Object.fromEntries(toolbox.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
   for (const slug of deferred) {
@@ -846,7 +846,26 @@ test('toolbox remaining image scenes map to existing workbenches', async () => {
     const workbench = targetRoute.split('/').pop()
     assert.equal(slugs.has(workbench), true, workbench)
   }
-  assert.equal(scenes['id-photo'].targetRoute || '/tools/ai/id-photo', '/tools/ai/id-photo')
+})
+
+test('portrait toolbox scenes are implemented workbenches', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const cats = JSON.parse(readFileSync(join(root, 'src/data/business.json'), 'utf8'))
+  const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
+  const bySlug = Object.fromEntries(schemas.map((scene) => [scene.slug, scene]))
+  const expected = ['id-photo', 'pro-portrait', 'art-portrait']
+  const toolbox = cats.find((item) => item.key === 'toolbox')
+  const scenes = Object.fromEntries(toolbox.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
+  assert.equal(schemas.length, 96)
+  for (const slug of expected) {
+    assert.equal(scenes[slug].capability, 'implemented', slug)
+    assert.equal(scenes[slug].targetRoute, `/tools/ai/${slug}`, slug)
+    assert.equal(bySlug[slug].outputMode, 'variants', slug)
+    assert.equal(bySlug[slug].roles[0].min, 1, slug)
+  }
 })
 
 test('cross-border image-set scenes map and listing copy is implemented', async () => {

@@ -153,7 +153,7 @@
 { "scenes": [ { "slug": "suite", "title": "商品套图", "group": "...", "roles": [], "fields": [], "maxOutputs": 4, "defaultRatio": "3:4", "outputMode": "...", "instruction": "..." } ] }
 ```
 
-数据来源：`src/data/sceneSchemas.json`（共 93 个场景，含商品图、模特图、POD、爆款衍生、图层拆分 / 去水印 Pro / 打印尺寸、白底/抠图/超清/扩图/消除/万能改图，以及 5 个 `outputMode=text` 的文案场景）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用图像契约。
+数据来源：`src/data/sceneSchemas.json`（共 96 个场景，含商品图、模特图、POD、爆款衍生、图层拆分 / 去水印 Pro / 打印尺寸、白底/抠图/超清/扩图/消除/万能改图、证件照/职业形象照/艺术写真，以及 5 个 `outputMode=text` 的文案场景）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用图像契约。
 
 ### GET /api/v1/models
 

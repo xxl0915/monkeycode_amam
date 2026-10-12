@@ -91,8 +91,14 @@
         "type": "select",
         "default": "china",
         "options": [
-          { "value": "china", "label": "中文电商" },
-          { "value": "cross_border", "label": "跨境电商" }
+          {
+            "value": "china",
+            "label": "中文电商"
+          },
+          {
+            "value": "cross_border",
+            "label": "跨境电商"
+          }
         ]
       },
       {
@@ -101,8 +107,14 @@
         "type": "select",
         "default": "multi_dimension",
         "options": [
-          { "value": "multi_dimension", "label": "多维套图" },
-          { "value": "main_variant", "label": "主图变体测试" }
+          {
+            "value": "multi_dimension",
+            "label": "多维套图"
+          },
+          {
+            "value": "main_variant",
+            "label": "主图变体测试"
+          }
         ]
       },
       {
@@ -111,9 +123,18 @@
         "type": "select",
         "default": "balanced",
         "options": [
-          { "value": "promo", "label": "宣传大片" },
-          { "value": "balanced", "label": "平衡" },
-          { "value": "real", "label": "真实试穿" }
+          {
+            "value": "promo",
+            "label": "宣传大片"
+          },
+          {
+            "value": "balanced",
+            "label": "平衡"
+          },
+          {
+            "value": "real",
+            "label": "真实试穿"
+          }
         ]
       },
       {
@@ -11687,5 +11708,326 @@
         "max": 2000
       }
     ]
+  },
+  {
+    "slug": "id-photo",
+    "title": "证件照制作",
+    "group": "AI 智能处理",
+    "description": "从人物照片生成多规格、多底色的合规证件照。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "人物照片",
+        "min": 1,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 4,
+    "defaultRatio": "3:4",
+    "outputMode": "variants",
+    "fields": [
+      {
+        "key": "photo_size",
+        "label": "证件规格",
+        "type": "select",
+        "default": "one_inch",
+        "options": [
+          {
+            "value": "one_inch",
+            "label": "一寸"
+          },
+          {
+            "value": "two_inch",
+            "label": "二寸"
+          },
+          {
+            "value": "passport",
+            "label": "护照"
+          },
+          {
+            "value": "custom",
+            "label": "自定义"
+          }
+        ]
+      },
+      {
+        "key": "bg_color",
+        "label": "底色",
+        "type": "select",
+        "default": "blue",
+        "options": [
+          {
+            "value": "blue",
+            "label": "蓝底"
+          },
+          {
+            "value": "white",
+            "label": "白底"
+          },
+          {
+            "value": "red",
+            "label": "红底"
+          }
+        ]
+      },
+      {
+        "key": "attire",
+        "label": "着装方向",
+        "type": "select",
+        "default": "formal",
+        "options": [
+          {
+            "value": "formal",
+            "label": "正装"
+          },
+          {
+            "value": "business_casual",
+            "label": "商务休闲"
+          },
+          {
+            "value": "keep",
+            "label": "保持原服装"
+          }
+        ]
+      },
+      {
+        "key": "ratio",
+        "label": "输出比例",
+        "type": "select",
+        "default": "3:4",
+        "options": [
+          {
+            "value": "3:4",
+            "label": "3:4"
+          },
+          {
+            "value": "1:1",
+            "label": "1:1"
+          },
+          {
+            "value": "2:3",
+            "label": "2:3"
+          }
+        ]
+      },
+      {
+        "key": "count",
+        "label": "生成张数",
+        "type": "number",
+        "default": 1,
+        "min": 1,
+        "max": 4
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 4000
+      }
+    ],
+    "instruction": "根据人物照片生成证件照。保留原图人物身份、五官和发型，只调整构图、服装和纯色背景。按指定规格和底色输出，画面无文字、无水印、无证件框。"
+  },
+  {
+    "slug": "pro-portrait",
+    "title": "AI 职业形象照",
+    "group": "AI 智能处理",
+    "description": "将生活照转换为自然可信的职场形象照。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "人物照片",
+        "min": 1,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 4,
+    "defaultRatio": "3:4",
+    "outputMode": "variants",
+    "fields": [
+      {
+        "key": "occupation",
+        "label": "职业类型",
+        "type": "select",
+        "default": "office",
+        "options": [
+          {
+            "value": "office",
+            "label": "商务白领"
+          },
+          {
+            "value": "executive",
+            "label": "高管形象"
+          },
+          {
+            "value": "creative",
+            "label": "创意职业"
+          },
+          {
+            "value": "medical",
+            "label": "医疗专业"
+          }
+        ]
+      },
+      {
+        "key": "formality",
+        "label": "着装正式程度",
+        "type": "select",
+        "default": "business",
+        "options": [
+          {
+            "value": "business",
+            "label": "正装"
+          },
+          {
+            "value": "smart_casual",
+            "label": "商务休闲"
+          },
+          {
+            "value": "keep",
+            "label": "保持原服装"
+          }
+        ]
+      },
+      {
+        "key": "background",
+        "label": "背景",
+        "type": "select",
+        "default": "solid",
+        "options": [
+          {
+            "value": "solid",
+            "label": "纯色"
+          },
+          {
+            "value": "office",
+            "label": "办公室"
+          },
+          {
+            "value": "studio",
+            "label": "影棚"
+          }
+        ]
+      },
+      {
+        "key": "ratio",
+        "label": "输出比例",
+        "type": "select",
+        "default": "3:4",
+        "options": [
+          {
+            "value": "3:4",
+            "label": "3:4"
+          },
+          {
+            "value": "4:5",
+            "label": "4:5"
+          },
+          {
+            "value": "1:1",
+            "label": "1:1"
+          }
+        ]
+      },
+      {
+        "key": "count",
+        "label": "生成张数",
+        "type": "number",
+        "default": 1,
+        "min": 1,
+        "max": 4
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 4000
+      }
+    ],
+    "instruction": "把生活照转为职场形象照。保留原图人物身份和五官，只改变服装、背景和光影。背景按设定使用纯色、办公室或影棚，画面自然可信，无文字。"
+  },
+  {
+    "slug": "art-portrait",
+    "title": "AI 艺术写真照",
+    "group": "AI 智能处理",
+    "description": "将人物照片延展为多种风格的艺术写真。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "人物照片",
+        "min": 1,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 4,
+    "defaultRatio": "3:4",
+    "outputMode": "variants",
+    "fields": [
+      {
+        "key": "portrait_style",
+        "label": "写真风格",
+        "type": "select",
+        "default": "editorial",
+        "options": [
+          {
+            "value": "editorial",
+            "label": "杂志"
+          },
+          {
+            "value": "film",
+            "label": "胶片"
+          },
+          {
+            "value": "oil",
+            "label": "油画"
+          },
+          {
+            "value": "japanese",
+            "label": "日系"
+          }
+        ]
+      },
+      {
+        "key": "ratio",
+        "label": "输出比例",
+        "type": "select",
+        "default": "3:4",
+        "options": [
+          {
+            "value": "3:4",
+            "label": "3:4"
+          },
+          {
+            "value": "4:5",
+            "label": "4:5"
+          },
+          {
+            "value": "1:1",
+            "label": "1:1"
+          },
+          {
+            "value": "16:9",
+            "label": "16:9"
+          }
+        ]
+      },
+      {
+        "key": "count",
+        "label": "生成张数",
+        "type": "number",
+        "default": 2,
+        "min": 1,
+        "max": 4
+      },
+      {
+        "key": "extra",
+        "label": "补充要求",
+        "type": "textarea",
+        "default": "",
+        "max": 4000
+      }
+    ],
+    "instruction": "把人物照片延展为艺术写真。保留原图人物身份和五官，只改变服装、场景、光线和视觉风格。按选定风格输出，画面无发明文字。"
   }
 ]
