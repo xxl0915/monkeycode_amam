@@ -29,6 +29,7 @@ src/
     ├── SearchModal.vue           # 站内搜索
     ├── HelpDrawer.vue            # 帮助抽屉
     ├── SceneWorkbenchShell.vue   # 工作台外壳；平面与工具箱侧栏按 catalogNavRoute 直达 targetRoute
+    ├── MaskPainter.vue           # 工作台画笔蒙版；涂抹区域导出透明 PNG
     ├── Icon.vue                  # 图标
     └── LogoMark.vue              # 品牌 Logo
 ```
@@ -38,7 +39,7 @@ src/
 | 文件 | 目的 |
 |------|------|
 | `ProductSuiteView.vue` | 上传商品图、AI 分析/撰写卖点（登录后扣 4 积分，失败显示在按钮旁）、选择版位、提交套图任务；生成期间可继续提交，单张结果可重试 |
-| `ProductSceneView.vue` | 依据 `sceneSchemas.json` 动态渲染素材角色与字段，提交 `scene` slug 与带 `role` 的 refs |
+| `ProductSceneView.vue` | 依据 `sceneSchemas.json` 动态渲染素材角色与字段，提交 `scene` slug 与带 `role` 的 refs；蒙版角色可涂抹或上传 |
 | `CopyWorkbenchView.vue` | 文案/标题/Listing 工作台，提交对话任务并展示可复制文本 |
 | `WorkbenchView.vue` | 通用工作台，服务尚未契约化的入口（如实体获客） |
 | `SimplePage.vue` | `/logs` 与 `/mylogs` 的任务列表，含状态、时间、缩略图与删除 |

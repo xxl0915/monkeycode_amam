@@ -178,7 +178,7 @@
 }
 ```
 
-商品套图可在 `params.slots` 传入 `[{ key, label, brief }]`，worker 按版位分别出图。`params.analyze=true` 且 `outputMode=text` 时走对话分析。
+商品套图可在 `params.slots` 传入 `[{ key, label, brief }]`，worker 按版位分别出图。`params.analyze=true` 且 `outputMode=text` 时走对话分析。`refs.role=mask` 时 live 编辑把蒙版从参考图拆出：球球 Token multipart 把蒙版作为最后一张 `image[]` 并在提示词说明透明区域；非球球 multipart 用 `image` 加 `mask`；SenseNova JSON 走 `mask.image_url`。无蒙版时 multipart 仍用 `image[]`。
 
 - `scene` 为空：`400 missing_scene`
 - `scene` 不在已知场景集合内：`400 invalid_scene`（匹配 `slug` 或 `title`，集合为 `sceneSchemas.json` 与 `catalogs.js` 的并集）

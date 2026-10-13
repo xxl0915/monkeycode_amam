@@ -29,13 +29,18 @@
                     <img :src="item.preview" :alt="item.name" />
                     <i @click.stop="removeImage(role.key, item.id)">×</i>
                   </button>
+                  <button v-if="role.key === 'mask' && (uploads[role.key] || []).length < role.max" type="button" class="upload-tile" @click="openPainter">
+                    <Icon name="plus" :size="18" />
+                    <span>涂抹蒙版</span>
+                    <small>在原图上圈选</small>
+                  </button>
                   <button v-if="(uploads[role.key] || []).length < role.max" type="button" class="upload-tile" @click="pick(role.key)">
                     <Icon name="plus" :size="18" />
                     <span>上传{{ role.label }}</span>
                     <small>JPG / PNG / WebP</small>
                   </button>
                 </div>
-                <div v-if="!(uploads[role.key] || []).length" class="example-strip">
+                <div v-if="role.key !== 'mask' && !(uploads[role.key] || []).length" class="example-strip">
                   <span>推荐示例</span>
                   <button v-for="ex in examplesFor(role)" :key="ex.file" type="button" @click="useExample(role.key, ex)">
                     <img :src="ex.file" :alt="ex.name" />
@@ -186,6 +191,7 @@
         </aside>
       </div>
       <input ref="fileInput" class="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple @change="onFiles" />
+      <MaskPainter v-if="painterOpen && maskSource" :src="maskSource" @confirm="onMaskConfirm" @cancel="painterOpen = false" />
     </div>
     <div v-else class="missing">未找到场景 {{ sceneSlug }}</div>
   </SceneWorkbenchShell>
@@ -195,6 +201,7 @@
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../components/Icon.vue'
+import MaskPainter from '../components/MaskPainter.vue'
 import SceneWorkbenchShell from '../components/SceneWorkbenchShell.vue'
 import sceneSchemas from '../data/sceneSchemas.json'
 import { onlineModels, plazaModels } from '../data/catalogs'
@@ -229,6 +236,7 @@ const busy = ref(false)
 const resultTab = ref('result')
 const results = ref([])
 const notice = ref('')
+const painterOpen = ref(false)
 
 const productPool = [
   { name: '商品套图', file: '/product-scenes/samples/suite.webp' },
@@ -269,6 +277,7 @@ function resetTask() {
   resetForm(schema.value)
   resetUploads(schema.value)
   results.value = []
+  painterOpen.value = false
 }
 
 watch(schema, (next) => {
@@ -276,6 +285,7 @@ watch(schema, (next) => {
   resetUploads(next)
   results.value = []
   resultTab.value = 'result'
+  painterOpen.value = false
 }, { immediate: true })
 
 onUnmounted(() => {
@@ -326,6 +336,15 @@ function examplesFor(role) {
 
 const caseExamples = computed(() => examplesFor(schema.value?.roles?.[0] || { key: 'product' }))
 
+const maskSource = computed(() => {
+  for (const role of schema.value?.roles || []) {
+    if (role.key === 'mask') continue
+    const item = (uploads[role.key] || []).find((entry) => entry.preview || entry.url)
+    if (item) return item.preview || item.url
+  }
+  return ''
+})
+
 const missingRole = computed(() => (schema.value?.roles || []).find((role) => (uploads[role.key] || []).length < (role.min || 0)))
 const outputCount = computed(() => Math.max(1, Number(form.count) || 1))
 const uploading = computed(() => Object.values(uploads).some((list) => (list || []).some((item) => item.uploading)))
@@ -339,6 +358,30 @@ const generateHint = computed(() => {
 function pick(role) {
   pickRole.value = role
   fileInput.value?.click()
+}
+
+function openPainter() {
+  if (!maskSource.value) {
+    notice.value = '请先上传原图后再涂抹蒙版'
+    return
+  }
+  notice.value = ''
+  painterOpen.value = true
+}
+
+async function onMaskConfirm(file) {
+  painterOpen.value = false
+  const current = uploads.mask || []
+  current.forEach((item) => revokePreview(item.preview))
+  uploads.mask = []
+  addItems('mask', [localImageItem(file, { id: `${Date.now()}-mask.png` })])
+  if (store.user) {
+    try {
+      await persistPendingUploads()
+    } catch (err) {
+      notice.value = err?.message || '上传失败'
+    }
+  }
 }
 
 function addItems(role, items) {

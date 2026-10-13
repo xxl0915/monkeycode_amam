@@ -389,7 +389,9 @@ test('live vendor persists generation outputs as assets', async (t) => {
     }
     if (req.url === '/v1/images/edits') {
       seen.edits += 1
-      seen.hasImagePart = raw.toString('latin1').includes('name="image[]"')
+      const latin = raw.toString('latin1')
+      seen.hasImagePart = latin.includes('name="image[]"')
+      seen.hasMaskPart = latin.includes('name="mask"')
       sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
       return
     }
@@ -448,11 +450,12 @@ test('live vendor persists generation outputs as assets', async (t) => {
     assert.equal(editedJob.status, 'succeeded')
     assert.equal(seen.edits, 1)
     assert.equal(seen.hasImagePart, true)
+    assert.equal(seen.hasMaskPart, false)
   })
 })
 
 test('SenseNova live vendor sends JSON data-URL edits without watermark', async (t) => {
-  const seen = { generations: 0, edits: 0, watermark: null, promptExtend: null, imageUrl: '', contentType: '', genN: [], editN: [] }
+  const seen = { generations: 0, edits: 0, watermark: null, promptExtend: null, imageUrl: '', contentType: '', genN: [], editN: [], mask: undefined }
   const mock = await listenMock(async (req, res) => {
     const raw = await readRaw(req)
     const type = String(req.headers['content-type'] || '')
@@ -473,6 +476,7 @@ test('SenseNova live vendor sends JSON data-URL edits without watermark', async 
       seen.promptExtend = body.prompt_extend
       seen.editN.push(body.n)
       seen.imageUrl = String(body.images?.[0]?.image_url || '')
+      seen.mask = body.mask
       sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
       return
     }
@@ -525,6 +529,7 @@ test('SenseNova live vendor sends JSON data-URL edits without watermark', async 
     assert.equal(seen.watermark, false)
     assert.equal(seen.promptExtend, false)
     assert.match(seen.imageUrl, /^data:image\/png;base64,/)
+    assert.equal(seen.mask, undefined)
     assert.equal(JSON.stringify(editedJob).includes('test-sensenova-key'), false)
   })
 })
@@ -1146,5 +1151,195 @@ test('live suite slots call the vendor once per slot prompt', async (t) => {
     assert.match(seen.prompts[1], /当前版位: 场景图/)
     assert.equal(finished.outputs[0].slot, '白底图')
     assert.equal(finished.outputs[1].slot, '场景图')
+  })
+})
+
+test('mask roles stay optional on paint-edit scenes', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
+  const slugs = ['eliminate-pro', 'local-replace', 'material-apply', 'change-bg', 'product-retouch-pro']
+  for (const slug of slugs) {
+    const scene = schemas.find((item) => item.slug === slug)
+    const mask = scene.roles.find((role) => role.key === 'mask')
+    assert.equal(mask.min, 0, slug)
+    assert.equal(mask.max, 1, slug)
+  }
+})
+
+test('live multipart edits send mask separately from image[]', async (t) => {
+  const seen = { edits: 0, hasImagePart: false, hasImageArray: false, hasMaskPart: false }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/images/edits') {
+      seen.edits += 1
+      const latin = raw.toString('latin1')
+      seen.hasImagePart = /name="image"/.test(latin)
+      seen.hasImageArray = latin.includes('name="image[]"')
+      seen.hasMaskPart = latin.includes('name="mask"')
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_SEEDREAM_API_KEY: 'test-mask-key',
+    AMAM_VENDOR_SEEDREAM_BASE_URL: mock.origin,
+    AMAM_VENDOR_SEEDREAM_MODEL: 'seedream-4.5'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'mask-multipart@amam.ai')
+    const product = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'bag.png', role: 'product', mime: 'image/png', data: PNG_1X1 })
+    })
+    const mask = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'mask.png', role: 'mask', mime: 'image/png', data: PNG_1X1 })
+    })
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'eliminate-pro',
+        model: 'seedream',
+        params: { outputCount: 1, remove_note: '去掉桌面杂物' },
+        refs: [
+          { role: 'product', name: 'bag.png', url: product.body.url },
+          { role: 'mask', name: 'mask.png', url: mask.body.url }
+        ]
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.equal(seen.edits, 1)
+    assert.equal(seen.hasImagePart, true)
+    assert.equal(seen.hasImageArray, false)
+    assert.equal(seen.hasMaskPart, true)
+  })
+})
+
+test('qiuqiu live multipart edits send mask as last image[]', async (t) => {
+  const seen = { edits: 0, hasImageArray: false, hasMaskPart: false, imageCount: 0, prompt: '' }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/images/edits') {
+      seen.edits += 1
+      const latin = raw.toString('latin1')
+      seen.hasImageArray = latin.includes('name="image[]"')
+      seen.hasMaskPart = /name="mask"/.test(latin)
+      seen.imageCount = (latin.match(/name="image\[\]"/g) || []).length
+      const promptMatch = latin.match(/name="prompt"\r\n\r\n([\s\S]*?)\r\n--/)
+      seen.prompt = promptMatch ? promptMatch[1] : ''
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_GPT_IMAGE_25_API_KEY: 'test-qiuqiu-mask-key',
+    AMAM_VENDOR_GPT_IMAGE_25_BASE_URL: mock.origin,
+    AMAM_VENDOR_GPT_IMAGE_25_FLARE_MODEL: 'gpt-image-2.5-flare'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'mask-qiuqiu@amam.ai')
+    const product = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'bag.png', role: 'product', mime: 'image/png', data: PNG_1X1 })
+    })
+    const mask = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'mask.png', role: 'mask', mime: 'image/png', data: PNG_1X1 })
+    })
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'eliminate-pro',
+        model: 'gpt-image-25-flare',
+        params: { outputCount: 1, remove_note: '去掉桌面杂物' },
+        refs: [
+          { role: 'product', name: 'bag.png', url: product.body.url },
+          { role: 'mask', name: 'mask.png', url: mask.body.url }
+        ]
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.equal(seen.edits, 1)
+    assert.equal(seen.hasImageArray, true)
+    assert.equal(seen.hasMaskPart, false)
+    assert.equal(seen.imageCount, 2)
+    assert.match(seen.prompt, /Transparent \(alpha 0\)/)
+  })
+})
+
+test('SenseNova live edits put mask on mask.image_url only', async (t) => {
+  const seen = { edits: 0, images: 0, maskUrl: '' }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/images/edits') {
+      seen.edits += 1
+      const body = JSON.parse(raw.toString('utf8') || '{}')
+      seen.images = Array.isArray(body.images) ? body.images.length : 0
+      seen.maskUrl = String(body.mask?.image_url || '')
+      sendMockJson(res, 200, { data: [{ b64_json: PNG_1X1 }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_NANO_BANANA_API_KEY: 'test-mask-sensenova-key',
+    AMAM_VENDOR_NANO_BANANA_BASE_URL: mock.origin,
+    AMAM_VENDOR_NANO_BANANA_MODEL: 'sensenova-u1.5-fast'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'mask-sensenova@amam.ai')
+    const product = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'bag.png', role: 'product', mime: 'image/png', data: PNG_1X1 })
+    })
+    const mask = await json(`${base}/assets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: 'mask.png', role: 'mask', mime: 'image/png', data: PNG_1X1 })
+    })
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'eliminate-pro',
+        model: 'nano-banana',
+        params: { outputCount: 1 },
+        refs: [
+          { role: 'product', name: 'bag.png', url: product.body.url },
+          { role: 'mask', name: 'mask.png', url: mask.body.url }
+        ]
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.equal(seen.edits, 1)
+    assert.equal(seen.images, 1)
+    assert.match(seen.maskUrl, /^data:image\/png;base64,/)
   })
 })

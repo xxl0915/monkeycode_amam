@@ -23,7 +23,7 @@ server/
 | `index.js` | 路由分发：`/api/v1/*`，`sendJson`、`readBody`、`currentUser`、`issueToken` |
 | `db.js` | `state`、`save`、`newId`、`addLedger`、`creditUser`、`freezeCredits`、`settleCredits`、`refundCredits`、`reconcileLedger`、`writeAssetFile`、`readAssetFile` |
 | `worker.js` | `startJob(jobId)`：`queued → running → succeeded/failed` |
-| `vendor.js` | `generateForJob(job)` / `generateTextForJob(job)` / `buildPrompt(job)`：读 `AMAM_VENDOR_*`。图像走 `/v1/images/generations` 或 `/edits`；文案走 `/v1/chat/completions`。分析/识图任务把商品图以 `image_url` Data-URL 放进 user content。套图 `params.slots` 时按版位分别出图。`no_text` 时从图像提示词剔除商品资料、待补稿和文案字段。SenseNova 编辑走 JSON `images[].image_url` Data-URL，`watermark: false`、`prompt_extend: false`；多张时连打 `n=1`。球球 Token 三档（`gpt-image-25-sunburst` / `gpt-image-25-flare` / `gpt-image-25`）共用 `AMAM_VENDOR_GPT_IMAGE_25_*`，generations JSON / edits multipart，并带 `quality`、`output_format=png`。图像提示词禁止发明画面文字，文案提示词禁止编造价格与资质 |
+| `vendor.js` | `generateForJob(job)` / `generateTextForJob(job)` / `buildPrompt(job)`：读 `AMAM_VENDOR_*`。图像走 `/v1/images/generations` 或 `/edits`；文案走 `/v1/chat/completions`。分析/识图任务把商品图以 `image_url` Data-URL 放进 user content。套图 `params.slots` 时按版位分别出图。`no_text` 时从图像提示词剔除商品资料、待补稿和文案字段。SenseNova 编辑走 JSON `images[].image_url` Data-URL，`watermark: false`、`prompt_extend: false`；多张时连打 `n=1`；`role=mask` 走 `mask.image_url`。球球 Token 三档（`gpt-image-25-sunburst` / `gpt-image-25-flare` / `gpt-image-25`）共用 `AMAM_VENDOR_GPT_IMAGE_25_*`，generations JSON / edits multipart，并带 `quality`、`output_format=png`；有蒙版时把蒙版作为最后一张 `image[]` 并在提示词说明透明区域，无蒙版仍用 `image[]`。图像提示词禁止发明画面文字，文案提示词禁止编造价格与资质 |
 | `catalog.js` | `sceneSchemas`、`getScene`、`models`（对齐 `onlineModels`）、`samplePool` |
 
 ## 依赖

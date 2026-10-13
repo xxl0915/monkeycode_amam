@@ -11,7 +11,7 @@
 - 契约数据为静态 JSON，前后端共用
 - `slug` 与 `title` 均唯一，可作为场景标识
 - 服务端校验取 `sceneSchemas.json` 与 `catalogs.js` 的并集
-- 工作台 `ProductSceneView` 依据契约动态渲染输入表单与结果区
+- 工作台 `ProductSceneView` 依据契约动态渲染输入表单与结果区；`role=mask` 可涂抹导出 PNG
 - 提交任务时 `scene` 使用契约 `slug`；服务端同时接受 `slug` 与 `title`
 
 ## 代码位置

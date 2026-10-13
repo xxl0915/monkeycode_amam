@@ -126,7 +126,7 @@ workspace/
 **被依赖**: `server/index.js`, `server/worker.js`
 
 ### 生成 Worker 与厂商代调
-**目的**: 异步推进任务状态；`fake` 产出样图，`live` 按模型凭证代调上游并把结果落为资产
+**目的**: 异步推进任务状态；`fake` 产出样图，`live` 按模型凭证代调上游并把结果落为资产。`role=mask` 在 SenseNova edits 中单独上传；球球 Token 把蒙版作为最后一张参考图。
 **位置**: `server/worker.js`, `server/vendor.js`
 **关键文件**: `server/worker.js`, `server/vendor.js`
 **依赖**: `server/catalog.js`, `server/db.js`，各模型 `AMAM_VENDOR_*` 环境变量

@@ -318,7 +318,7 @@ export function extractChatText(payload) {
 }
 
 export function chatUserContent(job, prompt) {
-  const files = loadRefImages(job.refs).slice(0, 4)
+  const files = loadRefImages(job.refs).filter((file) => file.role !== 'mask').slice(0, 4)
   if (!files.length) return prompt
   return [
     { type: 'text', text: prompt },
@@ -366,7 +366,8 @@ function readStaticRef(url) {
 
 export function loadRefImages(refs) {
   const list = []
-  for (const ref of (refs || []).slice(0, 8)) {
+  for (const ref of refs || []) {
+    const role = String(ref?.role || 'product')
     if (ref?.assetId) {
       const asset = state.assets[ref.assetId]
       if (!asset) continue
@@ -375,17 +376,32 @@ export function loadRefImages(refs) {
       list.push({
         bytes,
         mime: asset.mime || sniffImageMime(bytes) || 'image/png',
-        name: asset.name || `${asset.id}.png`
+        name: asset.name || `${asset.id}.png`,
+        role
       })
       continue
     }
     const url = String(ref?.url || '')
     if (url.startsWith('/product-scenes/') || url.startsWith('/business/')) {
       const file = readStaticRef(url)
-      if (file) list.push(file)
+      if (file) list.push({ ...file, role })
     }
   }
   return list
+}
+
+export function splitRefImages(refs) {
+  const loaded = loadRefImages(refs)
+  const images = []
+  let mask = null
+  for (const file of loaded) {
+    if (file.role === 'mask') {
+      if (!mask) mask = file
+      continue
+    }
+    if (images.length < 8) images.push(file)
+  }
+  return { images, mask }
 }
 
 function imagesUrl(baseUrl, kind) {
@@ -462,21 +478,27 @@ async function decodeVendorImages(payload, timeout) {
   return images
 }
 
-function multipartBody(fields, files) {
+function appendFilePart(chunks, boundary, field, file, fallbackName) {
+  const filename = file.name || fallbackName
+  const mime = file.mime || 'image/png'
+  chunks.push(Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="${filename}"\r\nContent-Type: ${mime}\r\n\r\n`
+  ))
+  chunks.push(file.bytes)
+  chunks.push(Buffer.from('\r\n'))
+}
+
+function multipartBody(fields, files, mask) {
   const boundary = `amam${Date.now().toString(16)}`
   const chunks = []
   Object.entries(fields).forEach(([name, value]) => {
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`))
   })
+  const imageField = mask ? 'image' : 'image[]'
   files.forEach((file, index) => {
-    const filename = file.name || `ref-${index}.png`
-    const mime = file.mime || 'image/png'
-    chunks.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="${filename}"\r\nContent-Type: ${mime}\r\n\r\n`
-    ))
-    chunks.push(file.bytes)
-    chunks.push(Buffer.from('\r\n'))
+    appendFilePart(chunks, boundary, imageField, file, `ref-${index}.png`)
   })
+  if (mask) appendFilePart(chunks, boundary, 'mask', mask, 'mask.png')
   chunks.push(Buffer.from(`--${boundary}--\r\n`))
   return {
     body: Buffer.concat(chunks),
@@ -495,15 +517,23 @@ async function postVendorJson(url, headers, payload, timeout) {
 }
 
 async function decodeVendorResponse(res, timeout) {
-  if (res.status < 200 || res.status >= 300) throw vendorError('vendor_error')
+  if (res.status < 200 || res.status >= 300) {
+    const snippet = String(res.body || '').replace(/\s+/g, ' ').slice(0, 400)
+    console.error(`[vendor] status=${res.status} body=${snippet}`)
+    throw vendorError('vendor_error')
+  }
   const payload = parseJson(res.body)
-  if (!payload) throw vendorError('vendor_error')
+  if (!payload) {
+    const snippet = String(res.body || '').replace(/\s+/g, ' ').slice(0, 400)
+    console.error(`[vendor] invalid json body=${snippet}`)
+    throw vendorError('vendor_error')
+  }
   const images = await decodeVendorImages(payload, timeout)
   if (!images.length) throw vendorError('vendor_empty')
   return images
 }
 
-async function generateOnce(route, { prompt, size, refs, timeout, headers, n = 1, quality }) {
+async function generateOnce(route, { prompt, size, refs, mask, timeout, headers, n = 1, quality }) {
   const senseNova = isSenseNovaRoute(route)
   const qiuqiu = isQiuqiuImageRoute(route)
   const gptFields = qiuqiu
@@ -511,7 +541,7 @@ async function generateOnce(route, { prompt, size, refs, timeout, headers, n = 1
     : {}
   if (refs.length) {
     if (senseNova) {
-      const res = await postVendorJson(imagesUrl(route.baseUrl, 'edits'), headers, {
+      const payload = {
         model: route.model,
         prompt,
         n: 1,
@@ -520,17 +550,27 @@ async function generateOnce(route, { prompt, size, refs, timeout, headers, n = 1
         prompt_extend: false,
         response_format: 'b64_json',
         images: refs.map((file) => ({ image_url: toDataUrl(file) }))
-      }, timeout)
+      }
+      if (mask) payload.mask = { image_url: toDataUrl(mask) }
+      const res = await postVendorJson(imagesUrl(route.baseUrl, 'edits'), headers, payload, timeout)
       return decodeVendorResponse(res, timeout)
+    }
+    let files = refs
+    let maskFile = mask
+    let nextPrompt = prompt
+    if (qiuqiu && mask) {
+      files = refs.length < 8 ? [...refs, mask] : [...refs.slice(0, 7), mask]
+      maskFile = null
+      nextPrompt = `${prompt}\nMask: the last reference is a PNG mask aligned to the first image. Transparent (alpha 0) pixels mark the region to edit; opaque pixels must remain unchanged.`
     }
     const packed = multipartBody({
       model: route.model,
-      prompt,
+      prompt: nextPrompt,
       n: String(n),
       size,
       response_format: 'b64_json',
       ...gptFields
-    }, refs)
+    }, files, maskFile)
     const nextHeaders = {
       ...headers,
       'Content-Type': packed.contentType,
@@ -569,19 +609,19 @@ export async function generateForJob(job) {
   const n = outputCount(job.params)
   const size = mapSize(job.params)
   const quality = mapQuality(job.params, route)
-  const refs = loadRefImages(job.refs)
+  const { images: refs, mask } = splitRefImages(job.refs)
   const timeout = vendorTimeoutMs()
   const headers = { Authorization: `Bearer ${route.key}` }
   const slots = jobSlots(job)
   const senseNova = isSenseNovaRoute(route)
   const roundCount = slots ? slots.length : (senseNova ? Math.max(1, n) : 1)
   if (roundCount === 1 && !slots) {
-    return generateOnce(route, { prompt: buildPrompt(job), size, refs, timeout, headers, n, quality })
+    return generateOnce(route, { prompt: buildPrompt(job), size, refs, mask, timeout, headers, n, quality })
   }
   const images = []
   for (let i = 0; i < roundCount; i += 1) {
     const prompt = promptForJob(job, slots?.[i])
-    images.push(...await generateOnce(route, { prompt, size, refs, timeout, headers, n: 1, quality }))
+    images.push(...await generateOnce(route, { prompt, size, refs, mask, timeout, headers, n: 1, quality }))
   }
   return images
 }
