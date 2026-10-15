@@ -11710,6 +11710,74 @@
     ]
   },
   {
+    "slug": "pre-check",
+    "title": "投前检测",
+    "group": "AI 智能处理",
+    "description": "检测图片的主体、文字、构图和平台投放风险。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "待检测图片",
+        "min": 1,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "对上传图片做投放前检测，报告必须覆盖四个维度：主体（商品或人物是否完整清晰、有无遮挡裁切）、文字（画面文字是否准确可读、有无错别字或乱码）、构图（主体占比、留白、视觉重心是否适合投放版位）、平台风险（与目标平台的投放规范冲突项，如夸大表述、违禁元素）。每个维度给出风险等级（通过 / 低风险 / 高风险）与具体优化建议；无法确认的项写待核或待补，不要编造价格、认证、规格或审核结论。",
+    "fields": [
+      {
+        "key": "platform",
+        "label": "投放平台",
+        "type": "select",
+        "default": "all",
+        "options": [
+          {
+            "value": "all",
+            "label": "全部平台"
+          },
+          {
+            "value": "douyin",
+            "label": "抖音"
+          },
+          {
+            "value": "tmall",
+            "label": "天猫 / 淘宝"
+          },
+          {
+            "value": "xiaohongshu",
+            "label": "小红书"
+          },
+          {
+            "value": "pdd",
+            "label": "拼多多"
+          },
+          {
+            "value": "jd",
+            "label": "京东"
+          }
+        ]
+      },
+      {
+        "key": "placement",
+        "label": "版位",
+        "type": "text",
+        "default": "",
+        "max": 200,
+        "placeholder": "如信息流、主图、详情页"
+      },
+      {
+        "key": "goal",
+        "label": "投放目标",
+        "type": "textarea",
+        "default": "",
+        "max": 2000,
+        "placeholder": "如提升点击率、活动大促主图"
+      }
+    ]
+  },
+  {
     "slug": "id-photo",
     "title": "证件照制作",
     "group": "AI 智能处理",

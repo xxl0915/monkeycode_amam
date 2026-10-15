@@ -40,12 +40,12 @@
                </label>
              </div>
            </section>
-           <section class="form-section">
-            <div class="section-title">
+            <section class="form-section">
+             <div class="section-title">
               <span>2</span>
               <div>
-                <h2>可选商品图</h2>
-                <p>参考图仅辅助描述，结果仍是文本。</p>
+                <h2>{{ requireImage ? '待检测图片' : '可选商品图' }}</h2>
+                <p>{{ requireImage ? '检测报告基于上传图片生成，至少上传 1 张。' : '参考图仅辅助描述，结果仍是文本。' }}</p>
               </div>
             </div>
             <div class="reference-row">
@@ -113,7 +113,7 @@ const props = defineProps({
 const route = useRoute()
 const sceneSlug = computed(() => props.scene || String(route.params.scene || ''))
 const schema = computed(() => sceneSchemas.find((item) => item.slug === sceneSlug.value) || null)
-const kindLabel = computed(() => (props.kind === 'cross' ? '跨境上架' : '电商素材'))
+const kindLabel = computed(() => (props.kind === 'cross' ? '跨境上架' : props.kind === 'tool' ? 'AI 智能处理' : '电商素材'))
 const models = onlineModels.filter((item) => !item.video)
 const selectedModel = ref(models[0]?.id || 'nano-banana')
 
@@ -168,8 +168,14 @@ const primaryText = computed(() => {
   return keys.map((key) => String(form[key] || '').trim()).find(Boolean) || ''
 })
 const uploading = computed(() => uploads.value.some((item) => item.uploading))
-const canGenerate = computed(() => !!schema.value && (!!primaryText.value || uploads.value.length > 0) && !busy.value && !uploading.value)
+const requireImage = computed(() => schema.value?.slug === 'pre-check')
+const canGenerate = computed(() => {
+  if (!schema.value || busy.value || uploading.value) return false
+  if (requireImage.value) return uploads.value.length >= 1
+  return !!primaryText.value || uploads.value.length > 0
+})
 const generateHint = computed(() => {
+  if (requireImage.value && !uploads.value.length) return '请先上传待检测图片'
   if (!primaryText.value && !uploads.value.length) return '请先填写商品资料或上传参考图'
   if (uploading.value) return '图片上传中'
   return '补充资料后即可生成'

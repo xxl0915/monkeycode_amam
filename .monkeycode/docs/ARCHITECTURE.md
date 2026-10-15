@@ -65,7 +65,7 @@ workspace/
 │   ├── components/            # 图标、Logo、登录/充值/搜索/帮助组件
 │   ├── data/                  # 目录与契约数据
 │   │   ├── catalogs.js        # 商品图/模特图/视频/工具/平面等目录
-│   │   ├── sceneSchemas.json  # 场景契约（96 个场景的表单/schema）
+│   │   ├── sceneSchemas.json  # 场景契约（97 个场景的表单/schema）
 │   │   ├── business.js        # 业务分类读取辅助
 │   │   └── business.json      # 业务分类数据
 │   └── styles/base.css        # 设计令牌与基础样式

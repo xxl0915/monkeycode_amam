@@ -11,7 +11,7 @@ src/
 │   ├── CatalogView.vue           # 通用目录页（商品图/POD/衍生）
 │   ├── ProductSuiteView.vue      # 商品套图工作台（接任务管线）
     │   ├── ProductSceneView.vue      # 场景工作台；商品/模特/POD/衍生/工具/打印尺寸按 schema 动态渲染
-    │   ├── CopyWorkbenchView.vue     # 文案工作台；电商文案/标题与跨境 Listing 对话结果
+    │   ├── CopyWorkbenchView.vue     # 文案工作台；电商文案/标题、跨境 Listing 与投前检测对话结果
     │   ├── WorkbenchView.vue         # 通用工作台（视频实体获客等未契约化入口）
     │   ├── BusinessCatalogView.vue   # 业务分类目录
     │   ├── BusinessScenePlanView.vue # 业务场景方案页；营销、平面、电商素材、工具箱外部映射、跨境套图入口若有 targetRoute 会先重定向
@@ -40,7 +40,7 @@ src/
 |------|------|
 | `ProductSuiteView.vue` | 上传商品图、AI 分析/撰写卖点（登录后扣 4 积分，失败显示在按钮旁）、选择版位、提交套图任务；生成期间可继续提交，单张结果可重试 |
 | `ProductSceneView.vue` | 依据 `sceneSchemas.json` 动态渲染素材角色与字段，提交 `scene` slug 与带 `role` 的 refs；蒙版角色可涂抹或上传 |
-| `CopyWorkbenchView.vue` | 文案/标题/Listing 工作台，提交对话任务并展示可复制文本 |
+| `CopyWorkbenchView.vue` | 文案/标题/Listing 工作台，提交对话任务并展示可复制文本；投前检测（`pre-check`）复用同一工作台，图片至少 1 张 |
 | `WorkbenchView.vue` | 通用工作台，服务尚未契约化的入口（如实体获客） |
 | `SimplePage.vue` | `/logs` 与 `/mylogs` 的任务列表，含状态、时间、缩略图与删除 |
 | `LoginModal.vue` | 异步登录/注册、`busy` 态、服务端错误展示 |
