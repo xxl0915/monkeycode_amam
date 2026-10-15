@@ -11778,6 +11778,74 @@
     ]
   },
   {
+    "slug": "click-rate",
+    "title": "点击率预测",
+    "group": "AI 智能处理",
+    "description": "对多张商品主图进行点击率评估并选择更适合投放的主推图。",
+    "roles": [
+      {
+        "key": "product",
+        "label": "待评估主图",
+        "min": 1,
+        "max": 4
+      }
+    ],
+    "maxOutputs": 1,
+    "defaultRatio": "1:1",
+    "outputMode": "text",
+    "instruction": "按上传顺序逐张评估商品主图的点击潜力。每张图按主体吸引力、文字引导、色彩对比、场景氛围、平台适配五个维度诊断，并给出点击档位（高 / 中 / 低）。多张候选时在结尾明确选出主推图并说明理由。点击潜力用定性档位评估，禁止编造精确百分比或历史点击率数据；无法确认的项写待核或待补，不要编造价格、认证或规格。",
+    "fields": [
+      {
+        "key": "platform",
+        "label": "投放平台",
+        "type": "select",
+        "default": "all",
+        "options": [
+          {
+            "value": "all",
+            "label": "全部平台"
+          },
+          {
+            "value": "douyin",
+            "label": "抖音"
+          },
+          {
+            "value": "tmall",
+            "label": "天猫 / 淘宝"
+          },
+          {
+            "value": "xiaohongshu",
+            "label": "小红书"
+          },
+          {
+            "value": "pdd",
+            "label": "拼多多"
+          },
+          {
+            "value": "jd",
+            "label": "京东"
+          }
+        ]
+      },
+      {
+        "key": "placement",
+        "label": "版位",
+        "type": "text",
+        "default": "",
+        "max": 200,
+        "placeholder": "如信息流、主图、详情页"
+      },
+      {
+        "key": "goal",
+        "label": "投放目标",
+        "type": "textarea",
+        "default": "",
+        "max": 2000,
+        "placeholder": "如大促主图、提升点击率"
+      }
+    ]
+  },
+  {
     "slug": "id-photo",
     "title": "证件照制作",
     "group": "AI 智能处理",

@@ -837,11 +837,13 @@ test('toolbox remaining image scenes map to existing workbenches', async () => {
     'clothes-fix': '/product-images/wrinkle-remove',
     'shoes-fix': '/tools/ai/ai-edit'
   }
-  const deferred = ['click-rate']
+  const deferred = []
   const toolbox = cats.find((item) => item.key === 'toolbox')
   const scenes = Object.fromEntries(toolbox.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
   assert.equal(scenes['pre-check'].capability, 'implemented', 'pre-check')
   assert.equal(scenes['pre-check'].targetRoute, '/tools/ai/pre-check', 'pre-check')
+  assert.equal(scenes['click-rate'].capability, 'implemented', 'click-rate')
+  assert.equal(scenes['click-rate'].targetRoute, '/tools/ai/click-rate', 'click-rate')
   for (const slug of deferred) {
     assert.equal(scenes[slug].capability, 'planned', slug)
     assert.equal(scenes[slug].targetRoute, undefined, slug)
@@ -866,7 +868,7 @@ test('portrait toolbox scenes are implemented workbenches', async () => {
   const expected = ['id-photo', 'pro-portrait', 'art-portrait']
   const toolbox = cats.find((item) => item.key === 'toolbox')
   const scenes = Object.fromEntries(toolbox.groups.flatMap((group) => group.scenes).map((scene) => [scene.slug, scene]))
-  assert.equal(schemas.length, 97)
+  assert.equal(schemas.length, 98)
   for (const slug of expected) {
     assert.equal(scenes[slug].capability, 'implemented', slug)
     assert.equal(scenes[slug].targetRoute, `/tools/ai/${slug}`, slug)
@@ -1026,6 +1028,110 @@ test('live pre-check jobs send images to chat completions', async (t) => {
     assert.match(seen.prompt, /投放平台: 抖音/)
     assert.match(seen.prompt, /版位: 信息流/)
     assert.match(seen.prompt, /Scene: 投前检测/)
+  })
+})
+
+test('click-rate contract declares multi-image text evaluation', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const schemas = JSON.parse(readFileSync(join(root, 'src/data/sceneSchemas.json'), 'utf8'))
+  const scene = schemas.find((item) => item.slug === 'click-rate')
+  assert.equal(Boolean(scene), true)
+  assert.equal(scene.outputMode, 'text')
+  assert.equal(scene.roles[0].min, 1)
+  assert.equal(scene.roles[0].max, 4)
+  const platform = scene.fields.find((field) => field.key === 'platform')
+  assert.equal(platform.default, 'all')
+  assert.equal(platform.options.length, 6)
+  assert.match(scene.instruction, /主体吸引力/)
+  assert.match(scene.instruction, /点击档位/)
+  assert.match(scene.instruction, /主推图/)
+  assert.match(scene.instruction, /禁止编造精确百分比/)
+})
+
+test('fake click-rate jobs return evaluation report text', async (t) => {
+  const { server, base } = await listen()
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const { token, user } = await loginAs(base, 'clickrate-fake@amam.ai')
+  const asset = await json(`${base}/assets`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name: 'main.png', role: 'product', mime: 'image/png', data: PNG_1X1 })
+  })
+  const created = await json(`${base}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      scene: 'click-rate',
+      model: 'nano-banana',
+      params: { platform: 'douyin', outputCount: 1 },
+      refs: [{ role: 'product', name: 'main.png', url: asset.body.url }]
+    })
+  })
+  assert.equal(created.status, 201)
+  const finished = await pollJob(base, token, created.body.job.id)
+  assert.equal(finished.status, 'succeeded')
+  assert.match(finished.outputs[0].text, /点击档位/)
+  assert.match(finished.outputs[0].text, /主推图/)
+  const me = await json(`${base}/me`, { headers: { Authorization: `Bearer ${token}` } })
+  assert.equal(me.body.user.credits, user.credits - 4)
+})
+
+test('live click-rate jobs send images in order to chat completions', async (t) => {
+  const seen = { chat: 0, types: [], prompt: '' }
+  const mock = await listenMock(async (req, res) => {
+    const raw = await readRaw(req)
+    if (req.url === '/v1/chat/completions') {
+      seen.chat += 1
+      const body = JSON.parse(raw.toString('utf8') || '{}')
+      const userContent = body.messages?.find((m) => m.role === 'user')?.content
+      seen.types = Array.isArray(userContent) ? userContent.map((part) => part.type) : [typeof userContent]
+      seen.prompt = Array.isArray(userContent) ? userContent.find((part) => part.type === 'text')?.text || '' : String(userContent || '')
+      sendMockJson(res, 200, { choices: [{ message: { content: '【点击率评估】\n图 1：点击档位 中\n图 2：点击档位 高\n主推图：图 2' } }] })
+      return
+    }
+    sendMockJson(res, 404, { error: 'not_found' })
+  })
+  t.after(() => new Promise((resolve) => mock.server.close(resolve)))
+
+  await withVendorEnv({
+    AMAM_VENDOR_MODE: 'live',
+    AMAM_VENDOR_CHAT_API_KEY: 'test-chat-key',
+    AMAM_VENDOR_CHAT_BASE_URL: mock.origin,
+    AMAM_VENDOR_CHAT_MODEL: 'sensenova-6.8-flash-lite'
+  }, async () => {
+    const { server, base } = await listen()
+    t.after(() => new Promise((resolve) => server.close(resolve)))
+    const { token } = await loginAs(base, 'clickrate-live@amam.ai')
+    const refUrls = []
+    for (let i = 0; i < 2; i += 1) {
+      const asset = await json(`${base}/assets`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: `main-${i}.png`, role: 'product', mime: 'image/png', data: PNG_1X1 })
+      })
+      refUrls.push({ role: 'product', name: `main-${i}.png`, url: asset.body.url })
+    }
+    const created = await json(`${base}/jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scene: 'click-rate',
+        model: 'nano-banana',
+        params: { platform: 'douyin', placement: '信息流', outputCount: 1 },
+        refs: refUrls
+      })
+    })
+    const finished = await pollJob(base, token, created.body.job.id)
+    assert.equal(finished.status, 'succeeded')
+    assert.match(finished.outputs[0].text, /主推图/)
+    assert.equal(seen.chat, 1)
+    assert.deepEqual(seen.types, ['text', 'image_url', 'image_url'])
+    assert.match(seen.prompt, /投放平台: 抖音/)
+    assert.match(seen.prompt, /版位: 信息流/)
+    assert.match(seen.prompt, /Scene: 点击率预测/)
   })
 })
 

@@ -36,7 +36,8 @@ function textOutputsFor(job) {
     'listing-generate': 'Title: sample product title\nBullet 1: key fact from the brief\nBullet 2: material / size 待补\nSearch terms: user keywords',
     'listing-localize': '原文要点：用户提供的 Listing 事实\n本地化文本：按目标语言重写，不新增卖点。',
     'listing-compliance': '风险等级：待核\n问题位置：需人工核对夸大表述\n缺失信息：价格 / 认证 待补',
-    'pre-check': '【样例检测报告】\n主体：商品完整清晰，风险等级 通过\n文字：未发现错别字与乱码，风险等级 通过\n构图：主体占比偏低，建议收紧留白，风险等级 低风险\n平台风险：夸大表述待核，缺失认证 待补'
+    'pre-check': '【样例检测报告】\n主体：商品完整清晰，风险等级 通过\n文字：未发现错别字与乱码，风险等级 通过\n构图：主体占比偏低，建议收紧留白，风险等级 低风险\n平台风险：夸大表述待核，缺失认证 待补',
+    'click-rate': '【样例点击率评估】\n图 1：主体吸引力高，文字引导缺失，点击档位 中\n图 2：色彩对比强，场景氛围突出，点击档位 高\n主推图：图 2，理由：氛围与对比更贴合信息流投放\n优化建议：主图文案引导 待补'
   }
   return [{ index: 0, text: samples[job.scene] || '【样例文案】请在 live 模式下生成完整结果。' }]
 }

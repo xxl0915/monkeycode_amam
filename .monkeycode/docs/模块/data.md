@@ -7,7 +7,7 @@
 ```
 src/data/
 ├── catalogs.js        # 商品图/模特图/视频/工具/平面/POD/衍生等目录与索引
-├── sceneSchemas.json  # 97 个场景的契约（roles/fields/maxOutputs 等）
+├── sceneSchemas.json  # 98 个场景的契约（roles/fields/maxOutputs 等）
 ├── business.js        # 业务分类读取辅助函数
 └── business.json      # 业务分类数据（category/groups/scenes）
 ```

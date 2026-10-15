@@ -129,6 +129,7 @@ const router = createRouter({
         { path: 'ecommerce-assets/ai-copywriting', component: CopyWorkbenchView, props: { kind: 'material', scene: 'ai-copywriting' } },
         { path: 'ecommerce-assets/title-generator', component: CopyWorkbenchView, props: { kind: 'material', scene: 'title-generator' } },
         { path: 'tools/ai/pre-check', component: CopyWorkbenchView, props: { kind: 'tool', scene: 'pre-check' } },
+        { path: 'tools/ai/click-rate', component: CopyWorkbenchView, props: { kind: 'tool', scene: 'click-rate' } },
         {
           path: 'ecommerce-assets/:scene',
           component: BusinessScenePlanView,

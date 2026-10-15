@@ -4,7 +4,7 @@
 
 ## 什么是 Scene Contract？
 
-场景契约是 `src/data/sceneSchemas.json` 中定义的对象集合，共 97 个场景。每个契约声明该场景的 slug、标题、分组、参考素材角色（`roles`）、表单字段（`fields`）、最大输出数（`maxOutputs`）、默认比例（`defaultRatio`）、产出模式（`outputMode`）与提示说明（`instruction`）。业务目录（`src/data/catalogs.js`）则描述更广的场景清单（覆盖视频、工具、POD、爆款衍生等）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用图像契约；电商文案、标题、跨境 Listing 文案与投前检测使用 `outputMode=text` 的对话契约。证件照、职业形象照与艺术写真使用独立图像契约。Worker 的 `buildPrompt` 按契约把 `instruction`、角色标签与非空字段编进上游提示词。图像任务若 `params.no_text=true`，会剔除商品资料、待补稿和文案相关字段，只保留无字出图约束。
+场景契约是 `src/data/sceneSchemas.json` 中定义的对象集合，共 98 个场景。每个契约声明该场景的 slug、标题、分组、参考素材角色（`roles`）、表单字段（`fields`）、最大输出数（`maxOutputs`）、默认比例（`defaultRatio`）、产出模式（`outputMode`）与提示说明（`instruction`）。业务目录（`src/data/catalogs.js`）则描述更广的场景清单（覆盖视频、工具、POD、爆款衍生等）。平面设计、电商素材、工具箱剩余出图入口与跨境套图通过 `targetRoute` 复用图像契约；电商文案、标题、跨境 Listing 文案、投前检测与点击率预测使用 `outputMode=text` 的对话契约。证件照、职业形象照与艺术写真使用独立图像契约。Worker 的 `buildPrompt` 按契约把 `instruction`、角色标签与非空字段编进上游提示词。图像任务若 `params.no_text=true`，会剔除商品资料、待补稿和文案相关字段，只保留无字出图约束。
 
 **关键特征**:
 
